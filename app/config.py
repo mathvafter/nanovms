@@ -21,7 +21,7 @@ _lock = threading.RLock()
 DEFAULTS: dict[str, Any] = {
     "server": {
         "host": "0.0.0.0",
-        "port": 8080,
+        "port": 1900,
     },
     "storage": {
         "root": (ROOT / "recordings").as_posix(),

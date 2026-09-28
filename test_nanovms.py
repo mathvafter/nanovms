@@ -38,7 +38,7 @@ def check(name, cond, detail=""):
 def test_config():
     print("\n[config]")
     cfg = cfgmod.normalize({})
-    check("defaults: port=8080", cfg["server"]["port"] == 8080)
+    check("defaults: port=1900", cfg["server"]["port"] == 1900)
     check("defaults: segment_minutes=5", cfg["storage"]["segment_minutes"] == 5)
     check("empty cameras list", cfg["cameras"] == [])
 
@@ -47,7 +47,7 @@ def test_config():
         "cameras": [{"url": "rtsp://x"}, {"url": "rtsp://y"}],
     })
     check("merge: retention override", cfg2["storage"]["retention_days"] == 14)
-    check("merge: port preserved", cfg2["server"]["port"] == 8080)
+    check("merge: port preserved", cfg2["server"]["port"] == 1900)
     check("cameras normalised", len(cfg2["cameras"]) == 2)
     c0 = cfg2["cameras"][0]
     check("camera id auto-assigned", bool(c0["id"]))

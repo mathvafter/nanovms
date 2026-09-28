@@ -70,7 +70,7 @@ Setup complete. Next:
   1. edit config.json  - camera rtsp urls, storage.root
   2. probe a camera:   ./start.sh test 'rtsp://user:pass@ip:554/path'
   3. run it:           ./start.sh serve
-  4. browse to         http://<this-machine-ip>:8080
+  4. browse to         http://<this-machine-ip>:1900
 
 Running as a service on Debian? See DEPLOY.md and nanovms.service.
 EOF

@@ -22,7 +22,7 @@ git clone <this-repo> nanovms && cd nanovms && ./setup.sh
 
 # then edit config.json (camera urls, storage.root) and run:
 ./start.sh serve
-# -> http://<this-machine-ip>:8080
+# -> http://<this-machine-ip>:1900
 ```
 
 Prefer to do it by hand?
@@ -39,7 +39,7 @@ python run.py          # Linux / macOS / git-bash
 start.bat             # Windows
 
 # 4 — open browser
-http://localhost:8080
+http://localhost:1900
 ```
 
 `config.json` holds your camera credentials and is git-ignored, so every machine
@@ -49,7 +49,7 @@ keeps its own. Share the settings you want to be common by editing
 ## CLI
 
 ```
-python run.py                   # start server (default port 8080)
+python run.py                   # start server (default port 1900)
 python run.py --port 9090       # different port
 python run.py check             # environment / ffmpeg check
 python run.py test <url>        # probe a camera URL before adding it
@@ -74,7 +74,7 @@ python run.py sweep             # run cleanup
 
 ```json
 {
-  "server":  { "host": "0.0.0.0", "port": 8080 },
+  "server":  { "host": "0.0.0.0", "port": 1900 },
   "storage": {
     "root": "recordings",
     "segment_minutes": 5,
