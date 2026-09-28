@@ -40,13 +40,13 @@
 
   <!-- ---------------------------------------------------------- RECORDINGS -->
   <section id="tab-recordings" class="panel">
-    <div class="shinobi-bar">
-      <div class="shinobi-time" id="rec-when">no recording loaded</div>
+    <div class="rec-bar">
+      <div class="rec-when-lbl" id="rec-when">no recording loaded</div>
       <div class="sp"></div>
-      <label class="shinobi-lbl">Camera
+      <label class="rec-cam-lbl">Camera
         <select id="rec-cam"></select>
       </label>
-      <input type="date" id="rec-date" class="shinobi-date">
+      <input type="date" id="rec-date" class="rec-date-in">
       <button class="btn sm ghost" id="rec-reload" title="Reload">&#8635;</button>
     </div>
 
@@ -55,13 +55,13 @@
       <div class="player-info" id="rec-player-info">pick a camera and a date</div>
     </div>
 
-    <div class="shinobi-tools">
+    <div class="rec-toolbar">
       <button class="btn sm" id="rec-back" title="Back 5 min">&#171;</button>
       <button class="btn sm ghost" id="rec-rew" title="Rewind 1 min">&#8630;</button>
       <button class="btn sm" id="rec-fwd" title="Forward 1 min">&#8631;</button>
       <button class="btn sm ghost" id="rec-fwd2" title="Forward 5 min">&#187;</button>
       <span class="sep"></span>
-      <span class="shinobi-speed" id="rec-speed">
+      <span class="rec-rate" id="rec-speed">
         <button data-rate="1" class="on">1x</button>
         <button data-rate="2">2x</button>
         <button data-rate="4">4x</button>
@@ -72,7 +72,7 @@
       <label class="chk"><input type="checkbox" id="rec-precise"> re-encode</label>
     </div>
 
-    <div class="shinobi-tl">
+    <div class="rec-timeline">
       <div class="tl-track" id="rec-track"></div>
       <div class="tl-axis" id="rec-axis"></div>
       <div class="tl-day" id="rec-day"></div>

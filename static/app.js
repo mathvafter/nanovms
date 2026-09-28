@@ -445,7 +445,7 @@ async function renderLive() {
 
 /* ------------------------------------------------------------- recordings */
 
-/* Shinobi-style: one continuous timeline, click anywhere to play from there.
+/* One continuous timeline, click anywhere to play from there.
    No drag-to-select, no From/To boxes, no numbered steps. */
 
 const SHIN_SEG = 120;          // seconds of footage handed to the player at a time

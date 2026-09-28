@@ -1,6 +1,6 @@
 """NanoVMS - one recorder thread per camera, supervising an ffmpeg segment muxer.
 
-Resource strategy (the whole point vs Shinobi):
+Resource strategy (the whole point):
   * `-c copy` stream copy: ffmpeg does NO transcoding, so CPU stays near zero.
   * One ffmpeg process per *recording* camera only. No worker per stream type,
     no browser-side analysis, no motion engine.

@@ -1,7 +1,8 @@
 # NanoVMS
 
-Lightweight NVR (network video recorder)/
+Lightweight NVR (network video recorder) built for resource-constrained hardware.
 
+Recording is `ffmpeg -c copy` (stream copy, no decode/encode), so a Celeron N3050-class box records several cameras at ~2% CPU each. Live view and playback reach the browser as fMP4 over MSE, transcoding to H.264 only when the browser cannot decode the camera's native codec.
 
 ---
 

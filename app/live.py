@@ -1,6 +1,6 @@
 """NanoVMS - on-demand live view.
 
-Cost design (the reason this exists instead of Shinobi):
+Cost design (why this is built the way it is):
   * Nothing runs until a human opens the stream, and it tears itself down after
     `live.idle_timeout_sec` with zero viewers.
   * `-c:v copy` means ffmpeg only demuxes/remuxes: no decode, no encode. On a
