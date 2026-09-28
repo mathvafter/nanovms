@@ -1,8 +1,7 @@
 # NanoVMS
 
-Lightweight NVR (network video recorder) — a Shinobi replacement for resource-constrained hardware.
+Lightweight NVR (network video recorder)/
 
-**Why not Shinobi?** Shinobi runs Node.js + per-stream transcoding + a JS motion engine. On a Celeron N3050 (4 GB RAM) that is 60–150 % CPU per stream. NanoVMS records with `ffmpeg -c copy` (stream copy, zero decode/encode), so the same hardware records 3–4 cameras at ~2 % CPU.
 
 ---
 
