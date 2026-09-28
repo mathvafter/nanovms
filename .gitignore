@@ -1,0 +1,25 @@
+# Your settings, machine-specific. Contains camera credentials - never commit.
+config.json
+
+# Recorded footage. Can be enormous; never belongs in a code repo.
+recordings/
+*.mkv
+*.mp4
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Exports
+*.zip
+!deploy-safe.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

@@ -1,0 +1,70 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080
+  },
+  "storage": {
+    "root": "recordings",
+    "segment_minutes": 5,
+    "retention_days": 7,
+    "max_usage_percent": 85,
+    "keep_free_gb": 5,
+    "clips_retention_days": 14,
+    "sweep_orphans": true
+  },
+  "ffmpeg": {
+    "path": "",
+    "rtsp_transport": "tcp",
+    "rw_timeout_ms": 15000000,
+    "analyze_duration": 2,
+    "probe_size": 2000000,
+    "stall_timeout_sec": 30,
+    "restart_backoff_min": 2,
+    "restart_backoff_max": 60
+  },
+  "live": {
+    "max_concurrent": 2,
+    "idle_timeout_sec": 45,
+    "fps": 8,
+    "jpeg_quality": 7,
+    "max_width": 1280
+  },
+  "cameras": [
+    {
+      "id": "test",
+      "name": "TEST (no camera needed)",
+      "url": "lavfi:testsrc=size=1280x720:rate=25",
+      "enabled": true,
+      "record": true,
+      "audio": false,
+      "loop": true,
+      "encode": true,
+      "encode_fps": 10,
+      "segment_minutes": 1,
+      "notes": "synthetic source: verifies recording, playback, export and live view before you wire a real camera. Delete this camera when done."
+    },
+    {
+      "id": "cam1",
+      "name": "Front gate",
+      "url": "rtsp://admin:password@192.168.1.50:554/Streaming/Channels/101",
+      "enabled": false,
+      "record": true,
+      "audio": false,
+      "transport": "tcp",
+      "segment_minutes": 0,
+      "notes": "Hikvision main stream. Dahua: rtsp://user:pass@ip:554/cam/realmonitor?channel=1&subtype=0"
+    },
+    {
+      "id": "cam2",
+      "name": "Back yard (sub stream)",
+      "url": "rtsp://admin:password@192.168.1.51:554/Streaming/Channels/102",
+      "enabled": false,
+      "live_passthrough": false,
+      "live_rebase_ts": true,
+      "record": true,
+      "audio": false,
+      "segment_minutes": 0,
+      "notes": "Record the SUB stream on weak hardware: 640x480@15fps uses roughly a quarter of the disk and CPU of 1080p"
+    }
+  ]
+}

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NanoVMS</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="dot" id="health-dot"></span>
+    <h1>NanoVMS</h1>
+    <span class="ver">lightweight NVR</span>
+  </div>
+  <div class="pills" id="pills"></div>
+  <div class="actions">
+    <button class="btn ghost" id="btn-refresh">Refresh</button>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="live">Live</button>
+  <button class="tab" data-tab="recordings">Recordings</button>
+  <button class="tab" data-tab="clips">Clips</button>
+  <button class="tab" data-tab="storage">Storage</button>
+  <button class="tab" data-tab="setup">Setup</button>
+</nav>
+
+<main>
+  <!-- ---------------------------------------------------------------- LIVE -->
+  <section id="tab-live" class="panel active">
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="live-autoplay"> autoplay</label>
+      <label class="chk"><input type="checkbox" id="live-mjpeg"> MJPEG mode (compatible, more CPU)</label>
+      <span class="hint" id="live-hint"></span>
+    </div>
+    <div class="grid" id="live-grid"></div>
+  </section>
+
+  <!-- ---------------------------------------------------------- RECORDINGS -->
+  <section id="tab-recordings" class="panel">
+    <div class="shinobi-bar">
+      <div class="shinobi-time" id="rec-when">no recording loaded</div>
+      <div class="sp"></div>
+      <label class="shinobi-lbl">Camera
+        <select id="rec-cam"></select>
+      </label>
+      <input type="date" id="rec-date" class="shinobi-date">
+      <button class="btn sm ghost" id="rec-reload" title="Reload">&#8635;</button>
+    </div>
+
+    <div class="player-wrap">
+      <video id="rec-player" controls playsinline></video>
+      <div class="player-info" id="rec-player-info">pick a camera and a date</div>
+    </div>
+
+    <div class="shinobi-tools">
+      <button class="btn sm" id="rec-back" title="Back 5 min">&#171;</button>
+      <button class="btn sm ghost" id="rec-rew" title="Rewind 1 min">&#8630;</button>
+      <button class="btn sm" id="rec-fwd" title="Forward 1 min">&#8631;</button>
+      <button class="btn sm ghost" id="rec-fwd2" title="Forward 5 min">&#187;</button>
+      <span class="sep"></span>
+      <span class="shinobi-speed" id="rec-speed">
+        <button data-rate="1" class="on">1x</button>
+        <button data-rate="2">2x</button>
+        <button data-rate="4">4x</button>
+      </span>
+      <span class="sp"></span>
+      <button class="btn sm" id="rec-export">&#11015; Export clip</button>
+      <label class="chk"><input type="checkbox" id="rec-audio" checked> audio</label>
+      <label class="chk"><input type="checkbox" id="rec-precise"> re-encode</label>
+    </div>
+
+    <div class="shinobi-tl">
+      <div class="tl-track" id="rec-track"></div>
+      <div class="tl-axis" id="rec-axis"></div>
+      <div class="tl-day" id="rec-day"></div>
+    </div>
+    <div class="tl-hint" id="rec-msg"></div>
+  </section>
+
+  <!-- --------------------------------------------------------------- CLIPS -->
+  <section id="tab-clips" class="panel">
+    <div class="row">
+      <label>Camera <select id="clip-cam-filter"><option value="">all</option></select></label>
+      <button class="btn ghost" id="clip-reload">Reload</button>
+      <span class="hint" id="clip-hint"></span>
+    </div>
+    <div class="player-wrap">
+      <video id="clip-player" controls playsinline></video>
+      <div class="player-info" id="clip-player-info">select a clip</div>
+    </div>
+    <table class="tbl" id="clip-table">
+      <thead><tr><th>Name</th><th>Camera</th><th>From</th><th>Length</th><th>Size</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ------------------------------------------------------------- STORAGE -->
+  <section id="tab-storage" class="panel">
+    <div class="cards" id="storage-cards"></div>
+    <div class="row">
+      <button class="btn ghost" id="sweep-dry">Dry run cleanup</button>
+      <button class="btn" id="sweep-run">Clean up now</button>
+      <span class="hint" id="sweep-hint"></span>
+    </div>
+    <div id="sweep-warn"></div>
+    <table class="tbl" id="storage-table">
+      <thead><tr><th>Camera</th><th>Segments</th><th>Days</th><th>Size</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- --------------------------------------------------------------- SETUP -->
+  <section id="tab-setup" class="panel">
+    <h2>Cameras</h2>
+    <div id="cam-list"></div>
+
+    <h2>Add camera</h2>
+    <div class="form">
+      <label>Name <input id="new-name" placeholder="Front gate"></label>
+      <label class="wide">URL <input id="new-url"
+        placeholder="rtsp://user:pass@192.168.1.50:554/Streaming/Channels/101"></label>
+      <label class="chk"><input type="checkbox" id="new-record" checked> record</label>
+      <label class="chk"><input type="checkbox" id="new-audio"> audio</label>
+      <label>Transport <select id="new-transport">
+        <option value="">default</option><option value="tcp">tcp</option>
+        <option value="udp">udp</option><option value="http">http</option></select></label>
+      <div class="formrow">
+        <button class="btn ghost" id="new-test">Test URL</button>
+        <button class="btn" id="new-add">Add camera</button>
+      </div>
+      <div class="test-out" id="new-test-out"></div>
+    </div>
+
+    <h2>Recording &amp; storage</h2>
+    <div class="form">
+      <label>Segment minutes <input type="number" id="cfg-seg" min="1" max="60"></label>
+      <label>Retention days <input type="number" id="cfg-ret" min="0" max="365"></label>
+      <label>Max disk % <input type="number" id="cfg-maxpct" min="50" max="99"></label>
+      <label>Keep free GB <input type="number" id="cfg-freegb" min="0" max="500"></label>
+      <label>Clip retention days <input type="number" id="cfg-clipret" min="1" max="365"></label>
+      <label class="wide folder-pick-label">Recordings folder
+        <div class="folder-pick-row">
+          <input id="cfg-root" placeholder="e.g. D:\recordings or /mnt/nas/cctv">
+          <button class="btn ghost sm" id="cfg-root-browse" type="button">&#128193; Browse</button>
+        </div>
+        <span class="hint" id="cfg-root-hint"></span>
+      </label>
+    </div>
+
+    <h2>Live view</h2>
+    <div class="form">
+      <label>Max concurrent streams <input type="number" id="cfg-maxlive" min="1" max="8"></label>
+      <label>Idle timeout sec <input type="number" id="cfg-idle" min="10" max="600"></label>
+      <label>Transcode FPS <input type="number" id="cfg-fps" min="1" max="25"></label>
+      <label>Max width <input type="number" id="cfg-width" min="160" max="3840"></label>
+    </div>
+
+    <div class="formrow">
+      <button class="btn" id="cfg-save">Save settings</button>
+      <button class="btn ghost" id="cfg-reset">Reset to defaults</button>
+      <span class="hint" id="cfg-hint"></span>
+    </div>
+
+    <h2>Environment</h2>
+    <pre class="sys" id="sys-info"></pre>
+  </section>
+</main>
+
+<div id="toast"></div>
+
+<!-- folder picker -->
+<div class="modal-back" id="fs-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-title">
+      <span>Choose recordings folder</span>
+      <button class="btn sm ghost" id="fs-close">&#x2715;</button>
+    </div>
+    <div class="modal-path mono" id="fs-path"></div>
+    <div class="modal-drives" id="fs-drives"></div>
+    <div class="modal-dirs" id="fs-dirs"></div>
+    <div class="modal-foot">
+      <button class="btn sm ghost" id="fs-up">&#8679; Up</button>
+      <button class="btn sm ghost" id="fs-new">+ New folder</button>
+      <span class="hint" id="fs-hint"></span>
+      <span style="flex:1"></span>
+      <button class="btn sm ghost" id="fs-cancel">Cancel</button>
+      <button class="btn sm" id="fs-use">Use this folder</button>
+    </div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
