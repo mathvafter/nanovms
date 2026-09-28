@@ -59,6 +59,32 @@ python run.py sweep --dry       # preview retention cleanup
 python run.py sweep             # run cleanup
 ```
 
+## Security
+
+**There is no authentication.** Any client that can reach the port can read
+`/api/config` (which returns your camera RTSP URLs, passwords included), walk
+the filesystem via `/api/fs/browse`, delete recordings, and stop the server via
+`/api/shutdown`. The server also binds `0.0.0.0` by default, so it is reachable
+from every device on the network.
+
+That is a deliberate trade-off: an NVR you cannot open from your phone is not
+much use, and putting an auth system in front of every route adds a lot of
+surface for something that mostly runs on a private home LAN. It does print a
+warning at startup.
+
+On a shared or untrusted network, pick one:
+
+```sh
+# 1. bind localhost only, and reach it through a tunnel
+#    (set "host": "127.0.0.1" in config.json)
+ssh -L 1900:127.0.0.1:1900 you@nanovms-host
+
+# 2. bind localhost only, reachable over a VPN (Tailscale, WireGuard)
+```
+
+A reverse proxy with TLS and a password in front of the port also works, and is
+the usual answer if you need to expose it to the internet at all.
+
 ## Camera URL formats
 
 | Brand | URL pattern |

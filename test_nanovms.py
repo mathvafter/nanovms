@@ -724,6 +724,71 @@ def test_graceful_stop_finalises_segment():
         check("segment is not truncated", n == 0, f"{n} truncation marker(s)")
 
 
+def test_lan_ip_helper():
+    """_lan_ip() must return a routable-looking address or '', never raise.
+
+    It backs the startup security warning, which tells the user where the
+    unauthenticated server is reachable. A hostname lookup would stall for
+    seconds on a misconfigured box and print a warning so late it looks like a
+    hang, so this uses a UDP connect instead.
+    """
+    import run
+
+    ip = run._lan_ip()
+    check("_lan_ip returns a string", isinstance(ip, str), repr(ip))
+    if ip:
+        parts = ip.split(".")
+        check("_lan_ip looks like an IPv4 address", len(parts) == 4
+              and all(p.isdigit() and 0 <= int(p) <= 255 for p in parts), ip)
+        check("_lan_ip is not loopback", ip != "127.0.0.1", ip)
+
+
+def test_startup_warning_does_not_crash():
+    """The security warning must render on both bind modes without raising.
+
+    A %-formatting bug in this block killed the whole server right after it
+    had already bound the port and started recording - it looked like a
+    successful start, then died. Exercise the real printing code.
+    """
+    import io
+    import contextlib
+    import run
+
+    src = (ROOT / "run.py").read_text(encoding="utf-8")
+    check("warning is emitted only for wildcard binds",
+          'if host in ("0.0.0.0", "::")' in src)
+
+    for host in ("0.0.0.0", "::", "127.0.0.1"):
+        buf = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(buf):
+                run._print_bind_warning(host, 1900, run._lan_ip())
+        except Exception as e:
+            check(f"warning renders for host={host}", False, f"{type(e).__name__}: {e}")
+            continue
+        out = buf.getvalue()
+        if host in ("0.0.0.0", "::"):
+            check(f"warning shown for {host}", "NO AUTHENTICATION" in out)
+            check(f"warning names the port for {host}", "1900" in out)
+        else:
+            check(f"no warning for {host}", out.strip() == "", out[:60])
+
+
+def test_no_auth_endpoints_are_reachable_without_credentials():
+    """Document the security posture as a test, so it cannot change silently.
+
+    The server intentionally has no authentication. If someone later adds
+    auth, this test should be updated deliberately rather than by accident -
+    it is the tripwire that makes that change visible in review.
+    """
+    text = (ROOT / "app" / "server.py").read_text(encoding="utf-8")
+    for needle in ("Authorization", "authenticate", "@login_required"):
+        check(f"server.py has no {needle!r} auth layer", needle not in text)
+    # and the routes that make it dangerous
+    for route in ("/api/config", "/api/fs/browse", "/api/shutdown"):
+        check(f"{route} exists (documented risk)", route in text)
+
+
 def test_idle_live_session_is_reaped():
     """A live session nobody is watching must die on its own.
 
@@ -975,6 +1040,9 @@ def main():
     test_live_and_playback_fragments_start_on_keyframe()
     test_index_caps_segment_at_real_duration()
     test_graceful_stop_finalises_segment()
+    test_lan_ip_helper()
+    test_startup_warning_does_not_crash()
+    test_no_auth_endpoints_are_reachable_without_credentials()
     test_idle_live_session_is_reaped()
     test_sigterm_finalises_segment()
     test_recorder_cmd()

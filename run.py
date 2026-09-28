@@ -24,6 +24,58 @@ from app import config as cfgmod          # noqa: E402
 from app import index                     # noqa: E402
 
 
+def _lan_ip() -> str:
+    """Best-effort LAN address, so the startup warning is actionable.
+
+    Avoids a DNS lookup of the hostname, which can block for seconds on a
+    misconfigured Windows box; connects a UDP socket (no packets are sent)
+    and reads back the address the OS would route through.
+    """
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.settimeout(0.2)
+        s.connect(("192.0.2.1", 9))     # TEST-NET-1: unroutable, never leaves
+        return s.getsockname()[0]
+    except OSError:
+        return ""
+    finally:
+        s.close()
+
+
+def _print_bind_warning(host: str, port: int, lan: str = "") -> None:
+    """Print the no-authentication notice, but only on a wildcard bind.
+
+    Split out of cmd_serve so it can be exercised directly: an inlined block
+    of %-formatting once carried a stray tuple that killed the server *after*
+    it had bound the port and started recording, which looks like a clean
+    start right up until the process disappears.
+    """
+    if host not in ("0.0.0.0", "::"):
+        return
+    # The server has no authentication, so on a multi-device or untrusted
+    # network this is a real exposure, not a theoretical one: /api/config
+    # returns camera RTSP urls (with passwords), /api/fs/browse walks the
+    # filesystem, and /api/shutdown stops the server. Binding every interface
+    # stays the default on purpose - viewing an NVR from a phone is the point -
+    # but the user has to be told, once, at startup.
+    lan = lan or _lan_ip()
+    print()
+    print("  " + "!" * 66)
+    print("  !  NO AUTHENTICATION. Anyone who can reach this port can read")
+    print("  !  your camera passwords, browse your files and stop the server.")
+    if lan:
+        print("  !  Reachable at: http://%s:%d" % (lan, port))
+    else:
+        print("  !  Bound to all network interfaces.")
+    print("  !  Fine on a private home LAN. Use a VPN, an SSH tunnel")
+    print("  !  (ssh -L %d:127.0.0.1:%d you@host), or set server.host to"
+          % (port, port))
+    print("  !  127.0.0.1 in config.json on any shared/public network.")
+    print("  " + "!" * 66)
+    print()
+
+
 def cmd_serve(args) -> int:
     from app.server import serve
     cfg = cfgmod.load(args.config)
@@ -46,6 +98,7 @@ def cmd_serve(args) -> int:
         n_rec = app.recorders.recording_count()
     print(f"NanoVMS listening on http://{shown}:{port}  "
           f"({n_rec}/{len(cfg['cameras'])} cameras recording)")
+    _print_bind_warning(host, port)
     if args.open_browser:
         import webbrowser
         threading.Thread(target=lambda: (time.sleep(0.6),
