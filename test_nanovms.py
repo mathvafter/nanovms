@@ -859,6 +859,47 @@ def test_idle_live_session_is_reaped():
         s.stop()
 
 
+def test_stop_during_spawn_does_not_leak_ffmpeg():
+    """stop() racing the reader thread must not orphan an ffmpeg.
+
+    start() spawns the reader thread and returns immediately; the thread is what
+    actually calls Popen. If stop() lands in that window, self._proc is still
+    None so p.kill() is skipped, and the reader then spawns ffmpeg AFTER the stop
+    flag is set. That ffmpeg runs forever: invisible to the session manager, still
+    holding one of the camera's 2 RTSP slots, so the next live view of the same
+    camera is refused and the tile looks permanently dead.
+    """
+    from app.stream import FragmentStream
+
+    class _Slow(FragmentStream):
+        def build_cmd(self):
+            # give stop() plenty of time to land before Popen happens
+            time.sleep(1.5)
+            return [find_ffmpeg(), "-hide_banner", "-loglevel", "error",
+                    "-f", "lavfi", "-i", "testsrc=size=160x120:rate=5",
+                    "-t", "60", "-c:v", "libx264", "-preset", "ultrafast",
+                    "-f", "mp4", "-movflags", "empty_moov+frag_keyframe",
+                    "-frag_duration", "1000000", "pipe:1"]
+
+    s = _Slow("live:racetest", {"live": {"idle_timeout_sec": 9999}})
+    s.start()
+    time.sleep(0.2)          # reader is inside build_cmd, _proc still None
+    s.stop()                 # must not leak
+
+    # wait past the point where the reader would have spawned
+    deadline = time.time() + 8
+    while time.time() < deadline:
+        time.sleep(0.5)
+        p = s._proc
+        if p is not None and p.poll() is not None:
+            break
+    p = s._proc
+    check("stop() during spawn leaves no running ffmpeg",
+          p is None or p.poll() is not None,
+          f"leaked ffmpeg pid={p.pid if p else None} still alive after stop()")
+    s.stop()
+
+
 def test_sigterm_finalises_segment():
     """A SIGTERM must finalise the segment, because that is how systemd stops.
 
@@ -1069,6 +1110,7 @@ def main():
     test_startup_warning_does_not_crash()
     test_no_auth_endpoints_are_reachable_without_credentials()
     test_idle_live_session_is_reaped()
+    test_stop_during_spawn_does_not_leak_ffmpeg()
     test_sigterm_finalises_segment()
     test_recorder_cmd()
     test_ffmpeg()

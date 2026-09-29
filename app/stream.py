@@ -130,6 +130,32 @@ class FragmentStream:
         self._stop.set()
         with self.cond:
             self.cond.notify_all()
+        # The reader thread calls Popen, so stop() can land while a spawn is still
+        # in flight and self._proc is still None. Give the reader a moment to
+        # publish the process, then kill it - otherwise ffmpeg starts AFTER the
+        # stop flag is set and runs forever, orphaned, still holding one of the
+        # camera's 2 RTSP slots. Each camera allows only 2 concurrent clients, so
+        # that leak starves the next live view and looks exactly like a dead
+        # camera.
+        deadline = time.time() + 2.0
+        while time.time() < deadline:
+            p = self._proc
+            if p is None:
+                if not any(t.is_alive() for t in self._threads):
+                    break
+                time.sleep(0.05)
+                continue
+            if p.poll() is not None:
+                break
+            try:
+                p.kill()
+            except Exception:
+                pass
+            try:
+                p.wait(timeout=1.0)
+            except Exception:
+                pass
+            break
         p = self._proc
         if p and p.poll() is None:
             try:
@@ -173,6 +199,16 @@ class FragmentStream:
                 bufsize=0, start_new_session=(not IS_WIN))
         except Exception as e:
             self.error = f"ffmpeg spawn failed: {e}"
+            self._finish()
+            return
+
+        # stop() may have landed while the command was being built. Now that the
+        # process exists, honour it immediately instead of streaming into a void.
+        if self._stop.is_set():
+            try:
+                self._proc.kill()
+            except Exception:
+                pass
             self._finish()
             return
 
