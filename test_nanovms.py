@@ -553,6 +553,31 @@ def test_live_and_playback_fragments_start_on_keyframe():
           "-g" in cmd and cmd[cmd.index("-g") + 1].isdigit(), joined[-200:])
     check("live: audio kept alongside video", "0:a:0?" in joined, joined[-200:])
 
+    # Regression: the transcode path hardcoded -g fps*2 and ignored live.gop_sec.
+    # With frag_ms=1000 that made a 2s GOP against 1s fragments, so every OTHER
+    # fragment began mid-GOP with no IDR. MSE accepted those, readyState hit 4,
+    # and the tile froze on one frame forever. The GOP must be derived from
+    # gop_sec, and must not exceed the fragment duration.
+    tcam = dict(cam, live_passthrough=False)
+    tcfg = normalize({"live": {"fps": 15, "gop_sec": 1, "frag_ms": 1000}})
+    tcfg["cameras"] = [tcam]
+    tls = LiveSession(tcam, tcfg)
+    tls.codec, tls.audio_codec = "hevc", "aac"
+    tls.width, tls.height = 1920, 1080
+    tls._av_checked, tls._av_broken = True, False
+    tcmd = LiveSession.build_cmd(tls)
+    tjoined = " ".join(tcmd)
+    tfps = int(tcfg["live"]["fps"])
+    tgop = int(tcfg["live"]["gop_sec"]) * tfps
+    tfrag = int(tcfg["live"]["frag_ms"])
+    check("live transcode: -g derived from gop_sec * fps",
+          tcmd[tcmd.index("-g") + 1] == str(tgop), tjoined[-200:])
+    check("live transcode: -r matches fps",
+          tcmd[tcmd.index("-r") + 1] == str(tfps), tjoined[-200:])
+    check("live transcode: every fragment starts on a keyframe "
+          "(gop_ms <= frag_ms)", tgop * 1000 // tfps <= tfrag,
+          "gop=%dms frag=%dms %s" % (tgop * 1000 // tfps, tfrag, tjoined[-160:]))
+
     with _tf.TemporaryDirectory(prefix="nanovms-pb-") as td:
         pcfg = normalize({"storage": {"root": td}})
         pcfg["cameras"] = [cam]

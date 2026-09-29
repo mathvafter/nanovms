@@ -213,9 +213,19 @@ class LiveSession(FragmentStream):
             cmd += ["-c:v", "copy", "-g", str(max(1, gop))]
         else:
             fps = max(1, min(int(lc.get("fps", 8)), 25))
+            # GOP must come from live.gop_sec, NOT a hardcoded fps*2. MSE needs
+            # every fragment to begin on an IDR, so the GOP must divide the
+            # fragment duration: a 2s GOP against 1s fragments makes every other
+            # fragment start mid-GOP, and the browser freezes on one frame with
+            # readyState 4 and no error. Clamp to frag_ms so it can never exceed
+            # one fragment.
+            gop_sec = max(0.1, float(lc.get("gop_sec", 2) or 2))
+            frag_ms = max(100, int(lc.get("frag_ms", 1000) or 1000))
+            gop_ms = min(int(round(gop_sec * 1000)), frag_ms)
+            gop = max(1, int(round(gop_ms * fps / 1000.0)))
             cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
                     "-profile:v", "baseline", "-pix_fmt", "yuv420p",
-                    "-g", str(fps * 2), "-bf", "0", "-r", str(fps)]
+                    "-g", str(gop), "-bf", "0", "-r", str(fps)]
             if lc.get("max_width"):
                 cmd += ["-vf", f"scale='min({int(lc['max_width'])},iw)':-2"]
 
