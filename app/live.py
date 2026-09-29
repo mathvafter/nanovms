@@ -126,6 +126,20 @@ class LiveSession(FragmentStream):
             return
         if seen_bytes < 150_000:
             return
+        # Video present but the audio track empty is the mirror failure, and it
+        # is just as fatal: the init segment then advertises an AAC stream that
+        # never delivers a packet, MSE rejects the init, and the tile sits at
+        # readyState 1 with nothing buffered and no error. It must be judged
+        # BEFORE the healthy-video bail-out below, or it never gets looked at.
+        if media.get(1, 0) > 32_768 and media.get(2, 0) == 0 and \
+                sum(media.values()) > 200_000:
+            self.cam["_audio_unusable"] = True
+            self._av_broken = True
+            self.audio_dropped = ("camera audio track is empty (init advertises "
+                                  "audio the browser never receives) - serving "
+                                  "video only")
+            self._restart_pending = True
+            return
         # a fair sample: an A/V stream legitimately opens with audio-only
         # fragments, so only judge once enough VIDEO could have arrived. A
         # starved one still shows nothing by the time the buffer is full.

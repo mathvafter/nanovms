@@ -656,6 +656,24 @@ def test_live_and_playback_fragments_start_on_keyframe():
           "unusable" in lsb.audio_dropped, lsb.audio_dropped)
     cam.pop("_audio_unusable", None)
 
+    # The mirror case, measured on cam2: video flows fine but the AAC track
+    # carries ZERO packets, so the init segment advertises an audio stream that
+    # never delivers. MSE rejects that init, reports the video dimensions, and
+    # then never appends - readyState 1, zero buffered, no error. The detector
+    # above only caught audio-starves-video (it bails as soon as video bytes
+    # appear), so an empty audio track slipped through and left a permanent
+    # black tile while the server looked perfectly healthy.
+    lse = LiveSession(cam, cfg)
+    lse.codec, lse.audio_codec = "h264", "aac"
+    lse.viewers = 1
+    lse.on_progress(400_000, {1: 399_000, 2: 0})
+    check("live: an empty audio track beside flowing video is flagged",
+          lse._restart_pending is True,
+          f"_restart_pending={lse._restart_pending} dropped={lse.audio_dropped!r}")
+    check("live: empty-audio verdict is remembered on the camera",
+          cam.get("_audio_unusable") is True)
+    cam.pop("_audio_unusable", None)
+
 
 def test_index_caps_segment_at_real_duration():
     """A short file must not inherit the next segment's span.
