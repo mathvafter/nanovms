@@ -1083,6 +1083,8 @@ $('#new-add').addEventListener('click', async () => {
       cur = j.path;
       parentOf = j.parent || '';       // trust the server, not string splitting
       $('#fs-path').textContent = j.path;
+      const pi = $('#fs-path-in');
+      if (pi && document.activeElement !== pi) pi.value = j.path;
       $('#fs-up').disabled = !parentOf;
       dirBox.innerHTML = '';
       if (!j.dirs.length) {
@@ -1118,6 +1120,15 @@ $('#new-add').addEventListener('click', async () => {
 
   // paths arrive from the OS, so join with the separator the server uses
   const join = (base, name) => base.replace(/[\\/]+$/, '') + '\\' + name;
+
+  const goTo = (v) => {
+    const t = (v || '').trim();
+    if (t) listDir(t);
+  };
+  $('#fs-go').addEventListener('click', () => goTo($('#fs-path-in').value));
+  $('#fs-path-in').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); goTo(e.target.value); }
+  });
 
   $('#fs-up').addEventListener('click', () => {
     if (parentOf) listDir(parentOf);

@@ -818,6 +818,53 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_storage_picker_accepts_a_typed_path():
+    """The folder picker must let you type a path, not only click to drill.
+
+    It opened at the current storage root with no text field, so reaching a
+    different mount (/home on the NUC) meant clicking Up three times and
+    hunting through a list - and there was no way to type a path at all. That
+    is the whole reason a GUI-only install could not move storage onto a
+    different disk.
+    """
+    print("\n[storage picker]")
+    html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+    check("picker has a path input", 'id="fs-path-in"' in html, "no text field")
+    check("picker has a Go button", 'id="fs-go"' in html, "no way to jump")
+    check("Go is wired up", "fs-go" in js, "button exists but no handler")
+    check("Enter in the path box navigates", "fs-path-in" in js and "Enter" in js,
+          "Enter does not submit the path")
+    check("typing a path calls the browse endpoint", "listDir(" in js,
+          "goTo does not navigate")
+
+
+def test_put_config_without_cameras_must_not_delete_them():
+    """A settings save must never be able to wipe the camera list.
+
+    apply_config does a full normalize() replace, so a PUT body that omits
+    "cameras" replaces the list with an empty one. This is not hypothetical: a
+    GET /api/config response was edited and PUT straight back to change one
+    storage path, and every camera vanished - the config on disk went to
+    "cameras": 0 and the UI showed an empty Setup tab. The browser form is safe
+    only because readConfigForm round-trips the fetched config; the API is not.
+    """
+    print("\n[config put is not destructive]")
+    server = (ROOT / "app" / "server.py").read_text(encoding="utf-8")
+
+    check("apply_config preserves cameras when the body omits them",
+          'if "cameras" not in body' in server,
+          "apply_config normalizes the PUT body wholesale - omitting cameras "
+          "deletes them all")
+    check("an explicit cameras key is still honoured",
+          'body["cameras"] = self.cfg.get("cameras", [])' in server,
+          "the guard is present but does not read the existing list")
+    # the settings route must be the one place allowed to replace the list
+    check("there is a dedicated camera-list route",
+          '"/api/cameras"' in server, "camera CRUD route missing")
+
+
 def test_example_config_matches_server_defaults():
     """config.example.json is what setup.sh copies into config.json.
 
@@ -1431,6 +1478,8 @@ def main():
     test_recorder_cmd()
     test_ffmpeg()
     test_http()   # runs last: spins up a real server
+    test_storage_picker_accepts_a_typed_path()
+    test_put_config_without_cameras_must_not_delete_them()
     test_example_config_matches_server_defaults()
     test_shell_scripts_are_unix_line_endings()
     test_every_config_key_is_reachable_from_the_gui()

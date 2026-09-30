@@ -200,7 +200,12 @@
       <span>Choose recordings folder</span>
       <button class="btn sm ghost" id="fs-close">&#x2715;</button>
     </div>
-    <div class="modal-path mono" id="fs-path"></div>
+    <div class="modal-path mono">
+      <input id="fs-path-in" class="mono grow" spellcheck="false"
+             placeholder="/home/user" aria-label="path">
+      <button class="btn sm" id="fs-go">Go</button>
+    </div>
+    <div class="hint" id="fs-path"></div>
     <div class="modal-drives" id="fs-drives"></div>
     <div class="modal-dirs" id="fs-dirs"></div>
     <div class="modal-foot">

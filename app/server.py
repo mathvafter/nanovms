@@ -52,8 +52,17 @@ class App:
         self.recorders.stop_all()
 
     def apply_config(self, new_cfg: dict, persist: bool = True) -> None:
+        # A settings PUT carries only the keys the form knows about. Replacing
+        # the config wholesale would silently delete every camera when the body
+        # omits "cameras" - which is exactly what happens if anyone edits a
+        # GET /api/config response and PUTs it back. Cameras are managed
+        # exclusively through /api/cameras, so a config save must never touch
+        # them; an explicit "cameras" key is still honoured.
+        body = dict(new_cfg or {})
         with self.lock:
-            self.cfg = cfgmod.normalize(new_cfg)
+            if "cameras" not in body:
+                body["cameras"] = self.cfg.get("cameras", [])
+            self.cfg = cfgmod.normalize(body)
             if persist:
                 cfgmod.save(self.cfg, self.config_path)
         self.recorders.sync(self.cfg)
