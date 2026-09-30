@@ -818,6 +818,48 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_example_config_matches_server_defaults():
+    """config.example.json is what setup.sh copies into config.json.
+
+    It had drifted from DEFAULTS: live.gop_sec and live.frag_ms were missing,
+    so a fresh install got a config that silently relied on the code defaults
+    for the two values that decide whether a live tile advances or freezes.
+    Deriving the comparison from DEFAULTS means the next key added anywhere
+    shows up here as a failure instead of as a surprise on someone's install.
+    """
+    print("\n[example config vs defaults]")
+    ex = json.loads((ROOT / "config.example.json").read_text(encoding="utf-8"))
+
+    for section in ("storage", "live"):
+        want = set(cfgmod.DEFAULTS.get(section, {}))
+        have = set(ex.get(section, {}))
+        missing = sorted(want - have)
+        check("%s keys in the template match DEFAULTS" % section, not missing,
+              "missing from config.example.json: " + ", ".join(missing))
+        extra = sorted(have - want)
+        check("%s has no keys the server does not define" % section, not extra,
+              "unknown keys: " + ", ".join(extra))
+
+    # gop_sec must not exceed frag_ms: a GOP longer than one fragment means
+    # every *other* fragment begins mid-GOP with no keyframe and the browser
+    # freezes on one frame forever. This exact mismatch cost a day on the NUC,
+    # so the shipped template must not contain it.
+    check("template gop_sec does not exceed frag_ms",
+          ex["live"]["gop_sec"] * 1000 <= ex["live"]["frag_ms"],
+          "gop_sec %s vs frag_ms %s - every other fragment would start "
+          "mid-GOP and freeze the tile" % (ex["live"]["gop_sec"],
+                                           ex["live"]["frag_ms"]))
+
+    # no real credentials may ever appear in the shared template
+    for cam in ex.get("cameras", []):
+        url = cam.get("url", "")
+        if not url.startswith("rtsp://"):
+            continue          # lavfi/file sources carry no credentials
+        check("camera %s uses placeholder credentials" % cam.get("id"),
+              "password" in url or "user:pass" in url or "admin:admin" in url,
+              "a real-looking credential in the shared template: " + url)
+
+
 def test_shell_scripts_are_unix_line_endings():
     """setup.sh must run on Linux, and this repo is developed on Windows.
 
@@ -1389,6 +1431,7 @@ def main():
     test_recorder_cmd()
     test_ffmpeg()
     test_http()   # runs last: spins up a real server
+    test_example_config_matches_server_defaults()
     test_shell_scripts_are_unix_line_endings()
     test_every_config_key_is_reachable_from_the_gui()
     test_many_cameras_coexist_with_independent_codecs()

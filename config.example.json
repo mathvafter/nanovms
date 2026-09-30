@@ -27,7 +27,9 @@
     "idle_timeout_sec": 45,
     "fps": 8,
     "jpeg_quality": 7,
-    "max_width": 1280
+    "max_width": 1280,
+    "gop_sec": 1,
+    "frag_ms": 1000
   },
   "cameras": [
     {
@@ -59,12 +61,12 @@
       "name": "Back yard (sub stream)",
       "url": "rtsp://admin:password@192.168.1.51:554/Streaming/Channels/102",
       "enabled": false,
-      "live_passthrough": false,
+      "live_mode": "auto",
       "live_rebase_ts": true,
       "record": true,
       "audio": false,
       "segment_minutes": 0,
-      "notes": "Record the SUB stream on weak hardware: 640x480@15fps uses roughly a quarter of the disk and CPU of 1080p"
+      "notes": "Record the SUB stream on weak hardware: 640x480@15fps uses roughly a quarter of the disk and CPU of 1080p. If the live tile stays black, set live_mode to x264 or mjpeg in the browser."
     }
   ]
 }
