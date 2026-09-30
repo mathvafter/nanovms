@@ -1076,6 +1076,17 @@ $('#new-add').addEventListener('click', async () => {
     } catch { box.style.display = 'none'; }
   }
 
+  // Path separator must follow the platform, not Windows. Joining with a
+  // literal backslash produced '/home/user\nanovms' on Linux, which is a
+  // filename containing a backslash: the server rejected it with
+  // "not a folder" and every click in the picker was a dead end.
+  const joinPath = (base, name) => {
+    const b = base.replace(/[\\/]+$/, '');
+    // a base that already uses backslashes and no forward slash is Windows
+    const s = (b.indexOf("\\") !== -1 && b.indexOf('/') === -1)
+      ? "\\" : '/';
+    return b + s + name;
+  };
   async function listDir(path) {
     dirBox.innerHTML = '<div class="hint">loading…</div>';
     try {
@@ -1091,7 +1102,7 @@ $('#new-add').addEventListener('click', async () => {
         dirBox.innerHTML = '<div class="hint">no subfolders here — this folder can be used as-is</div>';
       }
       j.dirs.forEach(name => {
-        const full = j.path.replace(/[\\/]+$/, '') + '\\' + name;
+        const full = joinPath(j.path, name);
         const row = document.createElement('button');
         row.className = 'fs-row';
         row.innerHTML = '📁 ' + escapeHtml(name);
@@ -1119,7 +1130,7 @@ $('#new-add').addEventListener('click', async () => {
   modal.addEventListener('click', e => { if (e.target === modal) close(); });
 
   // paths arrive from the OS, so join with the separator the server uses
-  const join = (base, name) => base.replace(/[\\/]+$/, '') + '\\' + name;
+  const join = joinPath;
 
   const goTo = (v) => {
     const t = (v || '').trim();

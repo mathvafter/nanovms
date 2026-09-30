@@ -372,6 +372,11 @@ class Handler(BaseHTTPRequestHandler):
                 # Server-side folder picker. Lists subdirectories only - no file
                 # contents and no file names are ever returned.
                 raw = self._q().get("path") or ""
+                # Backslashes from a Windows client or old code must not break
+                # POSIX path validation (os.path.normpath leaves them as literal
+                # characters in filenames on POSIX).
+                if raw and not IS_WIN:
+                    raw = raw.replace("\\", "/")
                 raw = os.path.abspath(os.path.expanduser(raw)) if raw.strip() else os.path.abspath(".")
                 # "/" means "start at C:\" on Windows, "/" elsewhere
                 if raw in ("/", "\\", "*", "root"):

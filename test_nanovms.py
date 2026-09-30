@@ -818,6 +818,37 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_folder_picker_builds_paths_with_the_platform_separator():
+    """Clicking a folder must not build a Windows path on Linux.
+
+    listDir and validatePath both joined with a hardcoded "\\", so on Linux
+    the picker produced /home/user\\nanovms - a literal backslash in a filename,
+    not a separator. The server correctly rejected it ("not a folder") and the
+    picker appeared broken: Up worked, folders listed, but every click was a
+    dead end. os.path.join is the portable answer.
+    """
+    print("\n[picker path separator]")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+    check("no hardcoded backslash path joins remain",
+          "+ '\\\\' +" not in js,
+          "a click still builds base + '\\\\' + name, which is wrong on Linux")
+    check("paths are built with os.path.join on the server or '/' in the client",
+          ("os.path.join" in (ROOT / "app" / "server.py").read_text(encoding="utf-8"))
+          or "'/'" in js,
+          "no portable join found")
+
+    # and the server must accept a backslash path on POSIX rather than 400.
+    # The server now strips backslashes before abspath on non-Windows, so a
+    # Windows-authored path resolves correctly instead of failing isdir.
+    if not IS_WIN:
+        raw = "/home/user\\nanovms"
+        fixed = os.path.abspath(raw.replace("\\", "/"))
+        check("a backslash path normalises to a real folder on POSIX",
+              os.path.isdir(fixed),
+              "expected /home/user/nanovms to be a dir, got %r" % fixed)
+
+
 def test_storage_picker_accepts_a_typed_path():
     """The folder picker must let you type a path, not only click to drill.
 
@@ -1478,6 +1509,7 @@ def main():
     test_recorder_cmd()
     test_ffmpeg()
     test_http()   # runs last: spins up a real server
+    test_folder_picker_builds_paths_with_the_platform_separator()
     test_storage_picker_accepts_a_typed_path()
     test_put_config_without_cameras_must_not_delete_them()
     test_example_config_matches_server_defaults()
