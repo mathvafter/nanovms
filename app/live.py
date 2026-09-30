@@ -15,12 +15,13 @@ Transport: fragmented MP4 boxes over HTTP -> browser MSE SourceBuffer.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import threading
 import time
 from pathlib import Path
-
-from .recorder import CREATE_NO_WINDOW, find_ffmpeg, find_ffprobe, build_input
+from .recorder import (CREATE_NO_WINDOW, find_ffmpeg, find_ffprobe, build_input,
+                       FNAME_FMT)
 from .stream import FragmentStream
 
 BROWSER_OK = ("h264", "mjpeg", "avc1")
@@ -41,6 +42,8 @@ class LiveSession(FragmentStream):
         # _av_broken is decided by on_progress() from the muxer's own output
         self._av_broken = bool(cam.get("_audio_unusable"))
         self._restart_pending = False
+        # set when the camera rejected our connection rather than being down
+        self.rtsp_refused = False
 
     # -- prep -------------------------------------------------------------- #
 
@@ -48,18 +51,22 @@ class LiveSession(FragmentStream):
         if not self.probe():
             self.error = "camera unreachable (ffprobe failed) - check URL, credentials, network"
 
-    def _probe_streams(self, timeout: float) -> dict:
+    def _probe_streams(self, timeout: float) -> tuple[dict, str]:
         """Probe video + audio stream properties in one ffprobe pass.
 
         Parses JSON, not `default=nw=1` lines: ffprobe emits fields grouped per
         stream but order within a stream is not guaranteed, so line parsing put
         `aac` in the video slot and made the UI think live was audio-only.
+
+        Returns (streams_dict, stderr) - stderr is needed to distinguish a
+        genuine connection failure from a 500 the camera sends when its RTSP
+        session limit is exhausted by the recorder.
         """
         ffmpeg = find_ffmpeg(self.cfg["ffmpeg"].get("path", ""))
         ffprobe = find_ffprobe(ffmpeg)
         out: dict = {}
         if not ffprobe:
-            return out
+            return out, ""
         url = self.cam["url"]
         if url.lower().startswith("lavfi:"):
             cmd = [ffprobe, "-v", "error", "-f", "lavfi"]
@@ -74,9 +81,10 @@ class LiveSession(FragmentStream):
             r = subprocess.run(cmd, capture_output=True, timeout=timeout,
                                creationflags=CREATE_NO_WINDOW)
         except (subprocess.TimeoutExpired, OSError):
-            return out
+            return out, ""
+        err = r.stderr.decode("utf-8", "replace") if r.stderr else ""
         if r.returncode != 0:
-            return out
+            return out, err
         try:
             data = json.loads(r.stdout.decode("utf-8", "replace") or "{}")
         except (ValueError, TypeError):
@@ -90,16 +98,21 @@ class LiveSession(FragmentStream):
                 info["width"] = int(s.get("width") or 0)
                 info["height"] = int(s.get("height") or 0)
             out[ctype] = info
-        return out
+        return out, err
 
     def probe(self, timeout: float = 12.0) -> bool:
-        info = self._probe_streams(timeout)
+        info, err = self._probe_streams(timeout)
         v = info.get("video") or {}
         a = info.get("audio") or {}
         self.codec = v.get("codec_name") or self.codec
         self.audio_codec = a.get("codec_name") or ""
         self.width = v.get("width", 0)
         self.height = v.get("height", 0)
+        if not self.width:
+            # "500" in stderr means the camera rejected our connection
+            # (RTSP session limit) rather than being unreachable.
+            if "500" in err or "Internal Server Error" in err:
+                self.rtsp_refused = True
         return bool(self.width)
 
     def _av_mux_is_broken(self) -> bool:
@@ -301,8 +314,166 @@ class LiveSession(FragmentStream):
         }
 
 
+class LiveFromRecorder(FragmentStream):
+    """Live view that reads from a camera's on-disk recording segment.
+
+    Some IP cameras (cam2's RUMAH, for instance) refuse a second RTSP
+    connection while the recorder holds the first, returning HTTP 500. The
+    recorder writes 5-minute MKV segments to /storage_root/<cam_id>/; this
+    session tails the newest segment and rewraps it to the same fragmented
+    MP4 the browser expects, so live view works with zero extra RTSP slots.
+
+    The output caps are identical to LiveSession.build_cmd so the browser
+    never sees a different codec, resolution, or fragment duration than the
+    direct-RTSP path.
+    """
+
+    def __init__(self, cam: dict, cfg: dict):
+        super().__init__(f"live-rec:{cam['id']}", cfg)
+        self.cam = cam
+        self.cam_id = cam["id"]
+        self.codec = "h264"
+        self.audio_codec = ""
+        self.audio_dropped = ""
+        self.width = 0
+        self.height = 0
+        self.transcoding = False
+        self._last_file: str | None = None
+
+    def _segment_dir(self) -> Path:
+        return Path(self.cfg["storage"]["root"]) / self.cam_id
+
+    def _latest_segment(self) -> Path | None:
+        d = self._segment_dir()
+        if not d.is_dir():
+            return None
+        best: Path | None = None
+        best_mtime = 0.0
+        try:
+            for e in os.scandir(d):
+                if not e.name.endswith(".mkv"):
+                    continue
+                st = e.stat()
+                # prefer the largest file that is still growing (in-progress
+                # segment) over the newest finished one
+                if st.st_size > 0:
+                    if st.st_mtime > best_mtime or (best is None and st.st_size >= 1_000_000):
+                        best = Path(e.path)
+                        best_mtime = st.st_mtime
+        except OSError:
+            pass
+        return best
+
+    def prepare(self) -> None:
+        f = self._latest_segment()
+        if not f or not f.is_file():
+            self.error = ("no recording segment found for fallback - "
+                           "is the recorder running?")
+            return
+        self._last_file = str(f)
+        # probe the segment file (no RTSP needed) to learn codec/dimensions
+        ffmpeg = find_ffmpeg(self.cfg["ffmpeg"].get("path", ""))
+        ffprobe = find_ffprobe(ffmpeg)
+        if not ffprobe:
+            return
+        cmd = [ffprobe, "-v", "error",
+               "-show_entries", "stream=codec_type,codec_name,width,height",
+               "-of", "json", str(f)]
+        try:
+            r = subprocess.run(cmd, capture_output=True, timeout=12,
+                               creationflags=CREATE_NO_WINDOW)
+        except (subprocess.TimeoutExpired, OSError):
+            return
+        if r.returncode != 0:
+            return
+        try:
+            data = json.loads(r.stdout.decode("utf-8", "replace") or "{}")
+        except (ValueError, TypeError):
+            return
+        for s in data.get("streams") or []:
+            ctype = s.get("codec_type")
+            if not ctype or ctype in self.__dict__.get("_seen", set()):
+                continue
+            if not hasattr(self, "_seen"):
+                self.__dict__["_seen"] = set()
+            self._seen.add(ctype)
+            if ctype == "video":
+                self.codec = s.get("codec_name") or self.codec
+                self.width = int(s.get("width") or 0)
+                self.height = int(s.get("height") or 0)
+            elif ctype == "audio":
+                self.audio_codec = s.get("codec_name") or ""
+
+    def build_cmd(self) -> list[str]:
+        ffmpeg = find_ffmpeg(self.cfg["ffmpeg"].get("path", ""))
+        lc = self.cfg["live"]
+        cam = self.cam
+        f = self._latest_segment() or Path(self._last_file or "")
+        want_audio = bool(cam.get("live_audio", True)) and bool(self.audio_codec)
+        # same codec decisions as LiveSession.build_cmd, but reading a file
+        mode = str(cam.get("live_mode") or "auto").strip().lower()
+        if mode == "copy":
+            passthrough = True
+        elif mode == "x264":
+            passthrough = False
+        else:
+            passthrough = (bool(cam.get("live_passthrough", True))
+                           and self.codec in BROWSER_OK)
+            if not self.width:
+                passthrough = False
+        self.transcoding = not passthrough
+        gop = 25  # default GOP for x264 path
+        if not passthrough:
+            gop_sec = max(0.1, float(lc.get("gop_sec", 2) or 2))
+            frag_ms = max(100, int(lc.get("frag_ms", 1000) or 1000))
+            gop_ms = min(int(round(gop_sec * 1000)), frag_ms)
+            fps = max(1, min(int(lc.get("fps", 8)), 25))
+            gop = max(1, int(round(gop_ms * fps / 1000.0)))
+        cmd = [ffmpeg, "-hide_banner", "-nostdin", "-loglevel", "error",
+               "-re", "-i", str(f),
+               "-map", "0:v:0", "-an"]
+        if not passthrough:
+            cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",
+                    "-profile:v", "baseline", "-pix_fmt", "yuv420p",
+                    "-g", str(gop), "-bf", "0", "-r", str(fps)]
+            if lc.get("max_width"):
+                cmd += ["-vf", f"scale='min({int(lc['max_width'])},iw)':-2"]
+        else:
+            cmd += ["-c:v", "copy"]
+        cmd += ["-flush_packets", "1",
+                "-movflags", "empty_moov+default_base_moof+separate_moof",
+                "-frag_duration", str(int(lc.get("frag_ms", 1000) or 1000) * 1000),
+                "-f", "mp4", "pipe:1"]
+        return cmd
+
+    def info(self) -> dict:
+        err = self.error
+        if not err and self.eof and not self.init_ready and self.viewers:
+            err = "recording segment ended - restart the recorder to extend"
+        return {
+            "cam_id": self.cam_id,
+            "active": bool(self.init_ready) and not self.eof and not self._stop.is_set(),
+            "codec": self.codec,
+            "audio_codec": self.audio_codec,
+            "audio_dropped": self.audio_dropped,
+            "width": self.width,
+            "height": self.height,
+            "transcoding": self.transcoding,
+            "viewers": self.viewers,
+            "init_ready": self.init_ready,
+            "uptime_sec": int(time.time() - self.started_at) if self.started_at else 0,
+            "error": err,
+        }
+
+
+
 class LiveManager:
-    """Keeps at most `live.max_concurrent` live sessions alive."""
+    """Keeps at most `live.max_concurrent` live sessions alive.
+
+    When a camera refuses a second RTSP connection (cam2/RUMAH: 500 on
+    connection limit), acquire() falls back to LiveFromRecorder, which
+    reads the recorder's on-disk segment instead of opening a new stream.
+    """
 
     def __init__(self, cfg: dict):
         self.cfg = cfg
@@ -313,7 +484,39 @@ class LiveManager:
         if cfg:
             self.cfg = cfg
 
-    def acquire(self, cam_id: str) -> LiveSession | None:
+    # Set when a camera rejected our RTSP connection because its recorder holds
+    # the only slot. The next acquire() for that camera goes straight to the
+    # recorder fallback instead of re-probing and eating another 500.
+    _rtsp_refused: set[str] = set()
+
+    def _clear_refusal(self, cam_id: str) -> None:
+        """Forget the RTSP refusal when no recorder is active, so the next
+        acquire() goes back to probing the camera directly."""
+        if cam_id in self._rtsp_refused and not self._recorder_is_active(cam_id):
+            self._rtsp_refused.discard(cam_id)
+
+    def _recorder_is_active(self, cam_id: str) -> bool:
+        """True when a recorder is producing segments for this camera.
+
+        A segment only exists (or keeps growing) while the recorder's ffmpeg
+        holds the camera's RTSP slot, which is exactly the condition that
+        makes the direct live connection fail.
+        """
+        d = Path(self.cfg["storage"]["root"]) / cam_id
+        if not d.is_dir():
+            return False
+        try:
+            newest = 0.0
+            for e in os.scandir(d):
+                if e.name.endswith(".mkv"):
+                    newest = max(newest, e.stat().st_mtime)
+        except OSError:
+            return False
+        # the in-progress segment's mtime tracks the recorder; a segment that
+        # stopped growing means the recorder is gone
+        return bool(newest and (time.time() - newest) < 30)
+
+    def acquire(self, cam_id: str) -> "LiveSession | LiveFromRecorder | None":
         cam = next((c for c in self.cfg["cameras"]
                     if c["id"] == cam_id and c.get("enabled") and c.get("url")), None)
         if not cam:
@@ -329,10 +532,27 @@ class LiveManager:
                 s = None
             if s is None or (s.eof and not s.info()["active"]):
                 self._enforce_limit(cam_id)
-                s = LiveSession(cam, self.cfg)
-                if cam.get("_audio_unusable"):
-                    s.audio_dropped = ("camera audio is unusable (A/V mux starves "
-                                       "video) - serving video only")
+                # Decide RTSP-vs-recorder before spawning. A camera at its
+                # RTSP limit returns 500 on probe (not 404/unreachable),
+                # which a recorder is already holding. Probe once: if it
+                # fails with a 500 and a recorder is active, serve live from
+                # the on-disk segment instead of opening a connection that
+                # is guaranteed to fail.
+                probe = LiveSession(cam, self.cfg)
+                ok = probe.probe(timeout=8.0)
+                if (not ok and getattr(probe, "rtsp_refused", False)
+                        and self._recorder_is_active(cam_id)):
+                    self._rtsp_refused.add(cam_id)
+                    s = LiveFromRecorder(cam, self.cfg)
+                    s.audio_dropped = ("camera RTSP at connection limit (recorder "
+                                       "holds the only slot) - serving live from "
+                                       "recording instead")
+                else:
+                    self._clear_refusal(cam_id)
+                    s = LiveSession(cam, self.cfg)
+                    if cam.get("_audio_unusable"):
+                        s.audio_dropped = ("camera audio is unusable (A/V mux starves "
+                                           "video) - serving video only")
                 self._sessions[cam_id] = s
                 s.acquire()
                 s.start()

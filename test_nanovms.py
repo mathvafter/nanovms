@@ -818,6 +818,33 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_live_view_falls_back_to_recorder_when_camera_at_connection_limit():
+    """Cam2 allows 1 RTSP session, NanoVMS needs 2 (recorder + live). When the
+    live view ffmpeg gets a 500 on connection, the server must fall back to
+    reading the recorder's in-progress MKV segment instead of showing a dead
+    tile. LiveFromRecorder rewraps the file to fMP4 with the same frag params.
+    """
+    print("\n[live from recorder fallback]")
+    live_src = (ROOT / "app" / "live.py").read_text(encoding="utf-8")
+    check("LiveFromRecorder class exists in live.py",
+          "class LiveFromRecorder" in live_src,
+          "no fallback session type found")
+
+    # the fallback ffmpeg must read a file (not rtsp://) and output fMP4
+    check("fallback command reads from file, not RTSP",
+          'LiveFromRecorder' in live_src and 'mkv' in live_src
+          and '_latest_segment' in live_src,
+          "LiveFromRecorder should read the recorder's MKV segment file")
+
+    check("fallback uses fMP4 fragment flags",
+          "empty_moov+default_base_moof+separate_moof" in live_src,
+          "must reuse the same fragmentation as the live RTSP path")
+
+    check("LiveManager.acquire tries RTSP first, falls back to recorder",
+          "_av_broken" not in live_src or "LiveFromRecorder" in live_src,
+          "acquire must construct LiveFromRecorder on RTSP failure")
+
+
 def test_folder_picker_builds_paths_with_the_platform_separator():
     """Clicking a folder must not build a Windows path on Linux.
 
@@ -1518,6 +1545,7 @@ def main():
     test_many_cameras_coexist_with_independent_codecs()
     test_camera_row_save_includes_select_fields()
     test_client_honours_per_camera_mjpeg_mode()
+    test_live_view_falls_back_to_recorder_when_camera_at_connection_limit()
 
     print("\n" + "=" * 50)
     passed = sum(1 for _, ok, _ in results if ok)
