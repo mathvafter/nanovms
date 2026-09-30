@@ -763,22 +763,34 @@ const FIELDS = [
   ['#cfg-idle', ['live', 'idle_timeout_sec'], Number],
   ['#cfg-fps', ['live', 'fps'], Number],
   ['#cfg-width', ['live', 'max_width'], Number],
+  ['#cfg-gop', ['live', 'gop_sec'], Number],
+  ['#cfg-frag', ['live', 'frag_ms'], Number],
+  ['#cfg-jpegq', ['live', 'jpeg_quality'], Number],
+  ['#cfg-sweeporph', ['storage', 'sweep_orphans'], 'checked'],
 ];
 
 function fillConfigForm(cfg) {
   FIELDS.forEach(([sel, path, cast]) => {
     const v = path.reduce((o, k) => (o || {})[k], cfg);
-    if (v !== undefined) $(sel).value = v;
+    if (v === undefined) return;
+    const el = $(sel);
+    // A checkbox ignores .value for its visual state, so assigning a boolean
+    // there leaves the box unticked while the server has the setting on.
+    if (el.type === 'checkbox') el.checked = (v === true || v === 'true');
+    else el.value = v;
   });
 }
 
 function readConfigForm(cfg) {
   const out = JSON.parse(JSON.stringify(cfg));
   FIELDS.forEach(([sel, path, cast]) => {
-    const v = $(sel).value;
+    const el = $(sel);
     let cur = out;
     for (const k of path.slice(0, -1)) cur = cur[k] = cur[k] || {};
-    cur[path.at(-1)] = cast === Number ? Number(v) : v;
+    // 'checked' marks a boolean control: .value is the useless default "on"
+    // unless we read .checked, which would store a truthy string.
+    if (cast === 'checked') cur[path.at(-1)] = el.type === 'checkbox' ? el.checked : el.value === 'true';
+    else cur[path.at(-1)] = cast === Number ? Number(el.value) : el.value;
   });
   return out;
 }

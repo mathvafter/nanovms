@@ -5,6 +5,7 @@ All tests use real code paths with a lavfi synthetic source or mocked data.
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -817,6 +818,48 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_every_config_key_is_reachable_from_the_gui():
+    """No setting may require editing config.json by hand.
+
+    The install path is clone + setup.sh + open the browser, so every key the
+    server reads has to be settable in the UI. gop_sec and frag_ms are the two
+    that cost a full day of debugging on the NUC: a GOP longer than one fragment
+    froze the live tile, and the only fix was a text editor. readConfigForm
+    also round-trips the fetched config, so a key missing from the FIELDS table
+    is silently reset to its default the moment a user presses Save.
+    """
+    print("\n[config keys on the gui]")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+    html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+
+    # collect the paths the FIELDS table maps to form controls
+    table = re.findall(r"\['(#[\w-]+)',\s*\[([^\]]+)\]", js)
+    covered = set()
+    for _sel, path in table:
+        covered.add(tuple(x.strip().strip("'\"") for x in path.split(",")))
+
+    missing = []
+    for section in ("storage", "live"):
+        for key in cfgmod.DEFAULTS.get(section, {}):
+            if (section, key) not in covered:
+                missing.append(f"{section}.{key}")
+    check("every storage/live default has a GUI control", not missing,
+          "not in the Settings tab: " + ", ".join(missing))
+
+    # and each control it does have must exist in the markup
+    for sel, _path in table:
+        if sel.startswith("#cfg-"):
+            check(f"{sel} exists in index.html", f'id="{sel[1:]}"' in html,
+                  "FIELDS table points at a control that is not in the markup")
+
+    # the ones that bit us must be explicitly present, not merely uncovered
+    for sel in ("#cfg-gop", "#cfg-frag", "#cfg-jpegq"):
+        check(f"{sel} is wired in the FIELDS table", sel in js,
+              "gop_sec/frag_ms are what freeze a live tile; they need a control")
+        check(f"{sel} exists in index.html", f'id="{sel[1:]}"' in html,
+              "FIELDS table points at a control that is not in the markup")
+
+
 def test_many_cameras_coexist_with_independent_codecs():
     """At least 8 cameras, each with its own live codec.
 
@@ -1323,6 +1366,7 @@ def main():
     test_recorder_cmd()
     test_ffmpeg()
     test_http()   # runs last: spins up a real server
+    test_every_config_key_is_reachable_from_the_gui()
     test_many_cameras_coexist_with_independent_codecs()
     test_camera_row_save_includes_select_fields()
     test_client_honours_per_camera_mjpeg_mode()
