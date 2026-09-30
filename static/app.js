@@ -391,11 +391,19 @@ function bindLiveCard(el, cam) {
     }
   };
 
+  // The per-camera live_mode wins over the global MJPEG checkbox. mjpeg is not
+  // a codec ffmpeg can mux into the MSE session - it is a separate HTTP
+  // endpoint with its own one-shot ffmpeg - so honouring it here is what makes
+  // the dropdown an actual fix rather than decoration.
+  const MODE = (window.S && S.cameras || []).find(c => c.id === cam.id);
+  const camMode = (MODE && MODE.live_mode) || 'auto';
+
   $('[data-act="start"]', el).addEventListener('click', e => {
     const isRunning = !!S.live[cam.id];
     if (isRunning) { stop(); e.target.textContent = 'Start'; }
     else {
-      start($('#live-mjpeg').checked ? 'mjpeg' : 'mse');
+      start(camMode === 'mjpeg' ? 'mjpeg'
+            : ($('#live-mjpeg').checked ? 'mjpeg' : 'mse'));
       e.target.textContent = 'Stop';
     }
   });
@@ -782,6 +790,12 @@ function renderCamList() {
     box.innerHTML = '<p class="hint">No cameras yet. Add one below - use "Test URL" first.</p>';
     return;
   }
+  // The dropdown must mirror app/config.py LIVE_MODES exactly: a mode offered
+  // here that the server does not accept would silently do nothing.
+  const liveModeOptions = (v) => ['auto', 'copy', 'x264', 'mjpeg']
+    .map((o) => `<option value='${o}' ${o === v ? 'selected' : ''}>${o}</option>`)
+    .join('');
+
   S.cameras.forEach(cam => {
     const r = cam.recorder || {};
     const row = document.createElement('div');
@@ -794,10 +808,12 @@ function renderCamList() {
             <span class="cam-tag ${r.state === 'recording' ? 'rec' : ''}">${r.state || 'idle'}</span>
             <span class="hint">pid ${r.pid || '-'}${r.restarts ? ` &middot; ${r.restarts} restarts` : ''}</span>
             <details class="camadv"><summary title="Live view options">live</summary>
-              <label class="chk" title="Copy the camera's video straight to the browser. Faster and cheaper, but only works when the browser can decode the camera's codec and the camera emits keyframes often. Untick for HEVC.">
-                <input type="checkbox" data-f="live_passthrough" ${cam.live_passthrough !== false ? 'checked' : ''}> stream-copy</label>
-              <label class="chk" title="Rewrite camera wallclock timestamps to start at zero. Leave on unless a source already starts near zero - a frozen single frame usually means this was wrong, and a blank tile usually means stream-copy was wrong.">
-                <input type="checkbox" data-f="live_rebase_ts" ${cam.live_rebase_ts !== false ? 'checked' : ''}> rebase ts</label>
+              <label>Live mode
+                <select data-f="live_mode">
+                  ${liveModeOptions(cam.live_mode || 'auto')}
+                </select></label>
+              <p class="hint">Blank tile &rarr; try <b>x264</b> or <b>mjpeg</b>.
+                 Frozen on one frame &rarr; try <b>mjpeg</b>.</p>
             </details>`;
     const btns = document.createElement('span');
     btns.style.display = 'flex';
@@ -812,7 +828,10 @@ function renderCamList() {
     btns.append(
       mk('Save', async () => {
         const body = {};
-        $$('input[data-f]', row).forEach(i => {
+        // Must cover select as well as input: the live_mode dropdown is a
+        // <select>, and an input-only sweep silently drops it, so Save would
+        // report success while persisting the old value.
+        $$('input[data-f], select[data-f]', row).forEach(i => {
           body[i.dataset.f] = i.type === 'checkbox' ? i.checked : i.value;
         });
         try {
@@ -982,8 +1001,7 @@ $('#new-add').addEventListener('click', async () => {
         url,
         record: $('#new-record').checked,
                 audio: $('#new-audio').checked,
-                live_passthrough: $('#new-live-passthrough').checked,
-                live_rebase_ts: $('#new-live-rebase-ts').checked,
+                live_mode: $('#new-live-mode').value,
                 transport: $('#new-transport').value,
       },
     });

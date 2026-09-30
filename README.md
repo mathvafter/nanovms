@@ -14,37 +14,50 @@ Recording is `ffmpeg -c copy` (stream copy, no decode/encode), so a Celeron N305
 ## Quick start
 
 ```bash
-# fresh machine, one command:
 git clone <this-repo> nanovms && cd nanovms && ./setup.sh
-
-# setup.sh checks python + ffmpeg, creates config.json from the template,
-# and runs the test suite. It never overwrites an existing config.json.
-
-# then edit config.json (camera urls, storage.root) and run:
-./start.sh serve
-# -> http://<this-machine-ip>:1900
 ```
 
-Prefer to do it by hand?
+`setup.sh` checks python + ffmpeg, creates `config.json` from the template, and
+runs the test suite. It never overwrites an existing `config.json`.
+
+Then start the server:
+
+```bash
+./start.sh serve
+```
+
+It prints the address to open, port included:
+
+```
+NanoVMS listening on http://0.0.0.0:1900
+  Reachable at: http://192.168.1.50:1900
+```
+
+**Everything else happens in the browser.** Open that address, go to the
+**Setup** tab, paste a camera RTSP URL, press **Test URL** to confirm the camera
+answers, then **Add**. Live view, recording, playback, retention and codec
+settings are all in the UI — you never need to edit `config.json` by hand.
+
+`config.json` is still what gets written (it holds your camera credentials and
+is git-ignored, so every machine keeps its own), but it is created for you and
+editable from the browser.
+
+## Manual install (no git)
 
 ```bash
 # 1 — copy the example config
 cp config.example.json config.json
 
-# 2 — edit: set real camera URLs, storage path, retention
-# (the "test" camera with a lavfi synthetic source works out of the box)
-
-# 3 — start
+# 2 — start (the bundled "test" camera uses a lavfi synthetic source)
 python run.py          # Linux / macOS / git-bash
 start.bat             # Windows
 
-# 4 — open browser
-http://localhost:1900
+# 3 — open the address it prints
 ```
 
-`config.json` holds your camera credentials and is git-ignored, so every machine
-keeps its own. Share the settings you want to be common by editing
-`config.example.json` instead.
+The web UI can add, edit and delete every camera, so step 2 needs no editing.
+Prefer to seed a config from a file? `config.example.json` is the shared,
+credential-free template.
 
 ## CLI
 

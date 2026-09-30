@@ -124,16 +124,18 @@
         placeholder="rtsp://user:pass@192.168.1.50:554/Streaming/Channels/101"></label>
       <label class="chk"><input type="checkbox" id="new-record" checked> record</label>
             <label class="chk"><input type="checkbox" id="new-audio"> audio</label>
-            <label class="chk"><input type="checkbox" id="new-live-passthrough" checked>
-              live stream-copy</label>
-            <label class="chk"><input type="checkbox" id="new-live-rebase-ts" checked>
-              rebase timestamps</label>
+            <label>Live mode
+              <select id="new-live-mode">
+                <option value="auto" selected>auto</option>
+                <option value="copy">copy</option>
+                <option value="x264">x264</option>
+                <option value="mjpeg">mjpeg</option>
+              </select></label>
+            <p class="hint wide">If the live tile stays black: try <b>x264</b> or <b>mjpeg</b>.
+              If frozen on one frame: try <b>mjpeg</b>.</p>
             <label>Transport <select id="new-transport">
               <option value="">default</option><option value="tcp">tcp</option>
               <option value="udp">udp</option><option value="http">http</option></select></label>
-            <p class="hint wide">A live tile that stays black usually means one of the
-              two boxes above is wrong for that camera. Untick
-              <b>live stream-copy</b> if the camera is HEVC, or sends keyframes rarely
               (&quot;Test URL&quot; reports whether the browser can play it directly).
               Leave <b>rebase timestamps</b> on unless the picture is frozen on one
               frame; unticking it is only correct for a source that already starts

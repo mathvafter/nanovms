@@ -170,9 +170,24 @@ class LiveSession(FragmentStream):
             self.audio_codec = ""
             self.audio_dropped = ("camera audio is unusable (A/V mux produces no "
                                   "frames) - video only")
-        passthrough = bool(cam.get("live_passthrough", True)) and self.codec in BROWSER_OK
-        if not self.width and not self.probe():
+        # live_mode is the single GUI-facing control for how the live view is
+        # produced. "auto" keeps the historical behaviour: stream-copy when the
+        # browser can already decode the camera codec, transcode when it cannot.
+        # The explicit modes exist because every live-view failure has a
+        # different remedy and the user must reach it from the UI, not a file.
+        mode = str(cam.get("live_mode") or "auto").strip().lower()
+        # mjpeg is NOT built here: it is a different HTTP endpoint with its own
+        # one-shot ffmpeg in server._mjpeg, so the client must ask for it rather
+        # than open a session. Only copy/x264/auto produce an MSE session.
+        if mode == "copy":
+            passthrough = True
+        elif mode == "x264":
             passthrough = False
+        else:
+            passthrough = (bool(cam.get("live_passthrough", True)) and
+                           self.codec in BROWSER_OK)
+            if not self.width and not self.probe():
+                passthrough = False
         self.transcoding = not passthrough
 
         # Some cameras (the EZVIZ C6N) push absolute wallclock PTS on the

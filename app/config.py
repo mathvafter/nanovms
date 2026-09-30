@@ -69,6 +69,11 @@ CAMERA_DEFAULTS: dict[str, Any] = {
     "loop": False,            # true only for file:// / test sources
     "live_passthrough": True, # true = copy video for live view (no transcode)
     "live_rebase_ts": True,  # rebase camera wallclock PTS to 0 for the browser
+    # Which video path the live view takes. "auto" lets NanoVMS decide from the
+    # probed codec, which is right for almost every camera; the explicit values
+    # are the escape hatches a user needs when a tile is black or frozen and
+    # hand-editing this file is not an option.
+    "live_mode": "auto",     # auto | copy | x264 | mjpeg
     "segment_minutes": 0,     # 0 -> inherit storage.segment_minutes
     "encode": False,          # true = re-encode on record (rawvideo/MJPEG sources)
     "encode_fps": 10,
@@ -86,11 +91,19 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return out
 
 
+LIVE_MODES = ("auto", "copy", "x264", "mjpeg")
+
+
 def normalize_camera(cam: dict, index: int = 0) -> dict:
     out = _deep_merge(CAMERA_DEFAULTS, cam or {})
     out["id"] = str(out.get("id") or "").strip() or f"cam{index + 1}"
     out["name"] = str(out.get("name") or "").strip() or out["id"]
     out["url"] = str(out.get("url") or "").strip()
+    # An unrecognised live_mode must never reach the ffmpeg builder: it would
+    # silently fall through to the transcode branch and look like "auto" worked
+    # while the user believed they had picked something specific.
+    mode = str(out.get("live_mode") or "auto").strip().lower()
+    out["live_mode"] = mode if mode in LIVE_MODES else "auto"
     return out
 
 

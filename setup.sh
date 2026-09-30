@@ -63,14 +63,32 @@ else
   die "tests failed - fix before deploying"
 fi
 
-cat <<'EOF'
+# Print the address the user will actually type, not a <placeholder>: a
+# first-time install should never have to work out their own LAN IP.
+IP=$("$PY" - <<'PYEOF'
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+try:
+    s.connect(("10.255.255.255", 1))
+    print(s.getsockname()[0])
+except Exception:
+    print("127.0.0.1")
+finally:
+    s.close()
+PYEOF
+)
+PORT=$("$PY" -c "import json;print(json.load(open('config.json'))['server']['port'])" 2>/dev/null || echo 1900)
+
+cat <<EOF
 
 Setup complete. Next:
 
-  1. edit config.json  - camera rtsp urls, storage.root
-  2. probe a camera:   ./start.sh test 'rtsp://user:pass@ip:554/path'
-  3. run it:           ./start.sh serve
-  4. browse to         http://<this-machine-ip>:1900
+  1. run it:        ./start.sh serve
+  2. open:          http://$IP:$PORT
+
+Then, in the browser: Setup tab -> paste a camera RTSP url -> Test url -> Add.
+Live view, recording, playback and codec settings are all done in the UI.
+No need to edit config.json by hand.
 
 Running as a service on Debian? See DEPLOY.md and nanovms.service.
 EOF

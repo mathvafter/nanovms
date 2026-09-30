@@ -817,45 +817,192 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_many_cameras_coexist_with_independent_codecs():
+    """At least 8 cameras, each with its own live codec.
+
+    A user on a powerful box should be able to add cameras without touching
+    the config file, and each one may need a different live codec. This locks in
+    that nothing in config normalization or the GUI assumes a small, fixed set.
+    """
+    print("\n[many cameras]")
+    cams = []
+    for i in range(8):
+        mode = ("auto", "copy", "x264", "mjpeg")[i % 4]
+        c = cfgmod.normalize_camera({"id": f"c{i}", "url": f"rtsp://h/s{i}", "live_mode": mode})
+        cams.append(c)
+    check("8 cameras normalize cleanly", len(cams) == 8 and all(c["id"] for c in cams))
+    check("ids stay unique", len({c["id"] for c in cams}) == 8)
+    check("each camera keeps its own live_mode",
+          [c["live_mode"] for c in cams] == ["auto", "copy", "x264", "mjpeg"] * 2)
+    check("all four modes are exercised", len({c["live_mode"] for c in cams}) == 4)
+
+    # the server must not cap the list anywhere
+    server = (ROOT / "app" / "server.py").read_text(encoding="utf-8")
+    for bad in ("MAX_CAMERAS", "max_cameras"):
+        check(f"no {bad} cap in server", bad not in server)
+
+
+def test_camera_row_save_includes_select_fields():
+    """A dropdown the Save button cannot read is worse than no dropdown.
+
+    The row Save handler originally swept only input[data-f], so the live_mode
+    <select> was never sent: the button reported "camera saved" and the old
+    value stayed on disk. Verified in a browser - the row showed x264, Save was
+    pressed, and /api/cameras still reported mjpeg.
+    """
+    print("\n[row save selects]")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+    check("row Save sweeps select elements too",
+          "select[data-f]" in js,
+          "Save only reads input[data-f], so any <select> is silently dropped")
+    check("row Save still reads checkboxes",
+          "i.type === 'checkbox'" in js, "checkbox handling lost")
+
+
+def test_client_honours_per_camera_mjpeg_mode():
+    """Choosing mjpeg per camera must change what the browser requests.
+
+    mjpeg is served from a different endpoint with its own one-shot ffmpeg; it
+    is not a codec the MSE session can mux. If the Start button keeps reading
+    only the global checkbox, a user who picks "mjpeg" for their broken camera
+    still gets the broken MSE path and the dropdown does nothing.
+    """
+    print("\n[client mjpeg wiring]")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+    check("live tile reads the camera's live_mode",
+          "live_mode" in js, "app.js never reads live_mode for the live tile")
+    check("live tile routes to the mjpeg endpoint on live_mode=mjpeg",
+          "/mjpeg" in js and "camMode" in js,
+          "the mjpeg endpoint is still only reachable via the global checkbox")
+
+
 def test_gui_exposes_every_live_view_tuning_flag():
-    """Every live-view flag must be reachable from the browser.
+    """The live-view codec must be choosable in the browser, per camera.
 
-    A camera whose live view needs transcoding has to have live_passthrough
-    cleared, and one that pushes wallclock PTS needs live_rebase_ts. Both were
-    config-only, so a user configuring purely through the Setup tab got a
-    permanently black tile with no error anywhere - the exact failure that cost
-    a full day of debugging on the NUC. The GUI is the documented way to set the
-    app up, so anything that changes a live view has to be in it.
-
-    The server already accepts these through POST /api/cameras
-    (normalize_camera deep-merges any field), so this is purely about the GUI.
+    The remedy for a black or frozen live tile differs per camera and used to
+    require hand-editing config.json. That is not an option for a user who
+    installed this with git clone + setup.sh and only knows the web UI, so the
+    single live_mode dropdown has to appear both in the add-camera form and in
+    the per-camera row (otherwise an existing camera cannot be fixed at all).
     """
     print("\n[gui live flags]")
     html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
     js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
 
-    # the per-camera editor row
-    check("live_passthrough is editable in the camera row",
-          'data-f="live_passthrough"' in js,
+    check("live_mode is editable in the camera row",
+          'data-f="live_mode"' in js,
           "not present in app.js camera row template")
-    check("live_rebase_ts is editable in the camera row",
-          'data-f="live_rebase_ts"' in js,
-          "not present in app.js camera row template")
+    check("add-camera form offers live_mode",
+          'id="new-live-mode"' in html, "missing from index.html")
+    check("add-camera POST sends live_mode",
+          "new-live-mode" in js, "value never read in app.js")
 
-    # the add-camera form, so a first-time user is not locked out
-    check("add-camera form offers live_passthrough",
-          'id="new-live-passthrough"' in html, "missing from index.html")
-    check("add-camera form offers live_rebase_ts",
-          'id="new-live-rebase-ts"' in html, "missing from index.html")
-    check("add-camera POST sends live_passthrough",
-          "new-live-passthrough" in js, "value never read in app.js")
-    check("add-camera POST sends live_rebase_ts",
-          "new-live-rebase-ts" in js, "value never read in app.js")
+    # every advertised mode must be one the server actually understands,
+    # otherwise the dropdown offers a setting that silently does nothing
+    for mode in ("auto", "copy", "x264", "mjpeg"):
+        check(f"add-camera form offers {mode}",
+              f'value="{mode}"' in html, f"{mode} missing from the dropdown")
+        check(f"camera row offers {mode}",
+              f"'{mode}'" in js, f"{mode} missing from liveModeOptions")
 
-    # and the defaults the GUI shows must match what the server would use
+    # and they must be the same set the server accepts
+    check("server accepts exactly the advertised modes",
+          set(cfgmod.LIVE_MODES) == {"auto", "copy", "x264", "mjpeg"},
+          f"LIVE_MODES is {cfgmod.LIVE_MODES}")
+
     d = cfgmod.normalize_camera({})
-    check("default live_passthrough is True", d["live_passthrough"] is True)
-    check("default live_rebase_ts is True", d["live_rebase_ts"] is True)
+    check("default live_mode is auto", d["live_mode"] == "auto")
+    check("an unknown live_mode falls back to auto",
+          cfgmod.normalize_camera({"live_mode": "av1"})["live_mode"] == "auto")
+    # legacy configs still work: the old boolean must keep deciding
+    check("legacy live_passthrough False still forces transcode in auto mode",
+          cfgmod.normalize_camera({"live_passthrough": False})["live_passthrough"] is False)
+
+
+def test_per_camera_live_codec_is_choosable_without_editing_config():
+    """A user whose live tile is black or frozen must be able to fix it in the GUI.
+
+    The only remedy used to be hand-editing config.json, which is exactly what
+    the README tells a new user not to do. Every live-view failure mode maps to
+    a different codec path, so the choice has to be reachable per camera:
+
+      auto   - let NanoVMS decide from the probed codec (browser-playable ->
+               stream copy, otherwise transcode). The safe default.
+      copy   - force -c:v copy. Cheapest, but needs a browser-playable codec
+               AND frequent keyframes, or the fragment starts mid-GOP.
+      x264   - force libx264. Costs CPU, works on almost anything.
+      mjpeg  - force the MJPEG endpoint. No MSE, works in any browser, but it
+               is per-frame and heavy, so only good for one camera at a time.
+
+    mjpeg is a client-visible mode (a different endpoint), so it must also be
+    selectable per camera rather than only by the global toolbar checkbox.
+    """
+    print("\n[per-camera live codec]")
+    html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+    from app.live import LiveSession
+    from app.config import normalize, normalize_camera
+
+    cam = {"id": "cam1", "url": "rtsp://x/stream", "name": "c"}
+
+    # ---- the four modes exist and are accepted by the config layer ----
+    d = normalize_camera({})
+    check("live_mode defaults to auto", d.get("live_mode") == "auto",
+          f"got {d.get('live_mode')!r}")
+    for m in ("auto", "copy", "x264", "mjpeg"):
+        n = normalize_camera({"live_mode": m})
+        check(f"live_mode={m!r} is accepted verbatim", n["live_mode"] == m)
+    n = normalize_camera({"live_mode": "nonsense"})
+    check("an unknown live_mode falls back to auto", n["live_mode"] == "auto",
+          f"got {n['live_mode']!r}")
+
+    # ---- each mode maps to the right ffmpeg flags ----
+    def cmd_for(mode, codec="h264"):
+        cfg = normalize({"live": {"fps": 15, "gop_sec": 1, "frag_ms": 1000}})
+        c = dict(cam, live_mode=mode, live_passthrough=True)
+        cfg["cameras"] = [c]
+        s = LiveSession(c, cfg)
+        s.codec, s.audio_codec = codec, ""
+        s.width, s.height = 1920, 1080
+        s._av_checked, s._av_broken = True, False
+        return LiveSession.build_cmd(s)
+
+    a = cmd_for("auto", "h264")
+    check("live_mode=auto copies a browser-playable codec",
+          a[a.index("-c:v") + 1] == "copy", " ".join(a[-120:]))
+    a2 = cmd_for("auto", "hevc")
+    check("live_mode=auto transcodes a codec the browser cannot play",
+          a2[a2.index("-c:v") + 1] == "libx264", " ".join(a2[-120:]))
+
+    c1 = cmd_for("copy", "hevc")
+    check("live_mode=copy forces -c:v copy even for HEVC",
+          c1[c1.index("-c:v") + 1] == "copy", " ".join(c1[-120:]))
+    check("live_mode=copy still forces a keyframe interval",
+          "-g" in c1 and c1[c1.index("-g") + 1].isdigit(), " ".join(c1[-120:]))
+
+    x = cmd_for("x264", "h264")
+    check("live_mode=x264 forces libx264 even for an H.264 camera",
+          x[x.index("-c:v") + 1] == "libx264", " ".join(x[-120:]))
+    check("live_mode=x264 keeps the fragment on a keyframe",
+          int(x[x.index("-g") + 1]) * 1000 // 15 <= 1000, " ".join(x[-140:]))
+
+    # ---- the GUI reaches every mode ----
+    check("camera row offers a live_mode select",
+          'data-f="live_mode"' in js, "no live_mode control in app.js")
+    check("add-camera form offers a live_mode select",
+          'id="new-live-mode"' in html, "missing from index.html")
+    check("add-camera POST sends live_mode", "new-live-mode" in js)
+    for m in ("auto", "copy", "x264", "mjpeg"):
+        check(f"add-camera offers the {m!r} option",
+              f'value="{m}"' in html, f"{m} option not in index.html")
+    # mjpeg is a different endpoint, so the client must honour the per-camera
+    # choice rather than only the global toolbar checkbox
+    check("client picks the mjpeg endpoint from the camera's own live_mode",
+          "live_mode" in js and "liveMode" in js,
+          "app.js never reads live_mode to choose an endpoint")
 
 
 def test_no_auth_endpoints_are_reachable_without_credentials():
@@ -1168,6 +1315,7 @@ def main():
     test_lan_ip_helper()
     test_startup_warning_does_not_crash()
     test_gui_exposes_every_live_view_tuning_flag()
+    test_per_camera_live_codec_is_choosable_without_editing_config()
     test_no_auth_endpoints_are_reachable_without_credentials()
     test_idle_live_session_is_reaped()
     test_stop_during_spawn_does_not_leak_ffmpeg()
@@ -1175,6 +1323,9 @@ def main():
     test_recorder_cmd()
     test_ffmpeg()
     test_http()   # runs last: spins up a real server
+    test_many_cameras_coexist_with_independent_codecs()
+    test_camera_row_save_includes_select_fields()
+    test_client_honours_per_camera_mjpeg_mode()
 
     print("\n" + "=" * 50)
     passed = sum(1 for _, ok, _ in results if ok)
