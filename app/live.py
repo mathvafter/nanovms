@@ -429,8 +429,12 @@ class LiveFromRecorder(FragmentStream):
             gop_ms = min(int(round(gop_sec * 1000)), frag_ms)
             fps = max(1, min(int(lc.get("fps", 8)), 25))
             gop = max(1, int(round(gop_ms * fps / 1000.0)))
+        # -re is omitted deliberately: we are tailing a live-growing segment,
+        # not replaying a file. Rate-limiting to native fps starves the first
+        # fragment for ~15s before the browser sees anything. The frag_duration
+        # cap below still controls fragment boundaries.
         cmd = [ffmpeg, "-hide_banner", "-nostdin", "-loglevel", "error",
-               "-re", "-i", str(f),
+               "-fflags", "+genpts", "-i", str(f),
                "-map", "0:v:0", "-an"]
         if not passthrough:
             cmd += ["-c:v", "libx264", "-preset", "ultrafast", "-tune", "zerolatency",

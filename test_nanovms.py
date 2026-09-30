@@ -840,6 +840,13 @@ def test_live_view_falls_back_to_recorder_when_camera_at_connection_limit():
           "empty_moov+default_base_moof+separate_moof" in live_src,
           "must reuse the same fragmentation as the live RTSP path")
 
+    # LiveFromRecorder.build_cmd must not contain "-re" in the ffmpeg args
+    # (the word may appear in comments; extract only the build_cmd body)
+    bcmd = live_src.split("def build_cmd")[1].split("def info")[0]
+    check("fallback build_cmd does not rate-limit with -re",
+          '"-re"' not in bcmd and " '-re'" not in bcmd,
+          "LiveFromRecorder must not use -re: it tails a live-growing segment")
+
     check("LiveManager.acquire tries RTSP first, falls back to recorder",
           "_av_broken" not in live_src or "LiveFromRecorder" in live_src,
           "acquire must construct LiveFromRecorder on RTSP failure")
