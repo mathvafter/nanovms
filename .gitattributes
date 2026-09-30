@@ -1,0 +1,22 @@
+# This repo is developed on Windows but deployed on Linux, so line endings are
+# a correctness issue, not a style one. A CRLF shebang ("bash\r") makes every
+# shell script fail on the target machine with
+#   env: 'bash\r': No such file or directory
+# which is exactly what a fresh `./setup.sh` on Linux did.
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md  text eol=lf
+*.json text eol=lf
+*.service text eol=lf
+
+# These must stay byte-exact.
+*.png binary
+*.jpg binary
+*.ico binary
+*.mp4 binary
+*.mkv binary

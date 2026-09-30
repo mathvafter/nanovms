@@ -818,6 +818,29 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_shell_scripts_are_unix_line_endings():
+    """setup.sh must run on Linux, and this repo is developed on Windows.
+
+    A CRLF shebang makes the kernel read "bash\r" as the interpreter name, so a
+    fresh ./setup.sh on the target machine dies with "env: bash\r: No such file
+    or directory" before it does anything at all. This shipped once: the file
+    looked fine in the diff and only failed when actually run on the Debian NUC.
+    """
+    print("\n[line endings]")
+    CR = b"\r"
+    for name in ("setup.sh", "start.sh", "nanovms.service", "DEPLOY.md"):
+        fp = ROOT / name
+        if not fp.exists():
+            continue
+        n = fp.read_bytes().count(CR)
+        check("%s has no CR bytes" % name, n == 0,
+              "%d CR bytes - will not run on Linux" % n)
+    sh = (ROOT / "setup.sh").read_bytes()
+    first = sh.split(b"\n", 1)[0]
+    check("setup.sh shebang is a clean LF", not first.endswith(CR),
+          "shebang %r ends with CR - the kernel would read bash\\r" % first)
+
+
 def test_every_config_key_is_reachable_from_the_gui():
     """No setting may require editing config.json by hand.
 
@@ -1366,6 +1389,7 @@ def main():
     test_recorder_cmd()
     test_ffmpeg()
     test_http()   # runs last: spins up a real server
+    test_shell_scripts_are_unix_line_endings()
     test_every_config_key_is_reachable_from_the_gui()
     test_many_cameras_coexist_with_independent_codecs()
     test_camera_row_save_includes_select_fields()
