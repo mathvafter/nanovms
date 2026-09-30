@@ -817,6 +817,47 @@ def test_startup_warning_does_not_crash():
             check(f"no warning for {host}", out.strip() == "", out[:60])
 
 
+def test_gui_exposes_every_live_view_tuning_flag():
+    """Every live-view flag must be reachable from the browser.
+
+    A camera whose live view needs transcoding has to have live_passthrough
+    cleared, and one that pushes wallclock PTS needs live_rebase_ts. Both were
+    config-only, so a user configuring purely through the Setup tab got a
+    permanently black tile with no error anywhere - the exact failure that cost
+    a full day of debugging on the NUC. The GUI is the documented way to set the
+    app up, so anything that changes a live view has to be in it.
+
+    The server already accepts these through POST /api/cameras
+    (normalize_camera deep-merges any field), so this is purely about the GUI.
+    """
+    print("\n[gui live flags]")
+    html = (ROOT / "static" / "index.html").read_text(encoding="utf-8")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+
+    # the per-camera editor row
+    check("live_passthrough is editable in the camera row",
+          'data-f="live_passthrough"' in js,
+          "not present in app.js camera row template")
+    check("live_rebase_ts is editable in the camera row",
+          'data-f="live_rebase_ts"' in js,
+          "not present in app.js camera row template")
+
+    # the add-camera form, so a first-time user is not locked out
+    check("add-camera form offers live_passthrough",
+          'id="new-live-passthrough"' in html, "missing from index.html")
+    check("add-camera form offers live_rebase_ts",
+          'id="new-live-rebase-ts"' in html, "missing from index.html")
+    check("add-camera POST sends live_passthrough",
+          "new-live-passthrough" in js, "value never read in app.js")
+    check("add-camera POST sends live_rebase_ts",
+          "new-live-rebase-ts" in js, "value never read in app.js")
+
+    # and the defaults the GUI shows must match what the server would use
+    d = cfgmod.normalize_camera({})
+    check("default live_passthrough is True", d["live_passthrough"] is True)
+    check("default live_rebase_ts is True", d["live_rebase_ts"] is True)
+
+
 def test_no_auth_endpoints_are_reachable_without_credentials():
     """Document the security posture as a test, so it cannot change silently.
 
@@ -1126,6 +1167,7 @@ def main():
     test_graceful_stop_finalises_segment()
     test_lan_ip_helper()
     test_startup_warning_does_not_crash()
+    test_gui_exposes_every_live_view_tuning_flag()
     test_no_auth_endpoints_are_reachable_without_credentials()
     test_idle_live_session_is_reaped()
     test_stop_during_spawn_does_not_leak_ffmpeg()

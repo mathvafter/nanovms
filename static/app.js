@@ -790,9 +790,15 @@ function renderCamList() {
       <div class="grow" style="max-width:180px"><input value="${cam.name}" data-f="name"></div>
       <div class="grow"><input value="${cam.url}" data-f="url" class="mono"></div>
       <label class="chk"><input type="checkbox" data-f="record" ${cam.record ? 'checked' : ''}> rec</label>
-      <label class="chk"><input type="checkbox" data-f="audio" ${cam.audio ? 'checked' : ''}> audio</label>
-      <span class="cam-tag ${r.state === 'recording' ? 'rec' : ''}">${r.state || 'idle'}</span>
-      <span class="hint">pid ${r.pid || '-'}${r.restarts ? ` &middot; ${r.restarts} restarts` : ''}</span>`;
+            <label class="chk"><input type="checkbox" data-f="audio" ${cam.audio ? 'checked' : ''}> audio</label>
+            <span class="cam-tag ${r.state === 'recording' ? 'rec' : ''}">${r.state || 'idle'}</span>
+            <span class="hint">pid ${r.pid || '-'}${r.restarts ? ` &middot; ${r.restarts} restarts` : ''}</span>
+            <details class="camadv"><summary title="Live view options">live</summary>
+              <label class="chk" title="Copy the camera's video straight to the browser. Faster and cheaper, but only works when the browser can decode the camera's codec and the camera emits keyframes often. Untick for HEVC.">
+                <input type="checkbox" data-f="live_passthrough" ${cam.live_passthrough !== false ? 'checked' : ''}> stream-copy</label>
+              <label class="chk" title="Rewrite camera wallclock timestamps to start at zero. Leave on unless a source already starts near zero - a frozen single frame usually means this was wrong, and a blank tile usually means stream-copy was wrong.">
+                <input type="checkbox" data-f="live_rebase_ts" ${cam.live_rebase_ts !== false ? 'checked' : ''}> rebase ts</label>
+            </details>`;
     const btns = document.createElement('span');
     btns.style.display = 'flex';
     btns.style.gap = '6px';
@@ -975,8 +981,10 @@ $('#new-add').addEventListener('click', async () => {
         name: name || url,
         url,
         record: $('#new-record').checked,
-        audio: $('#new-audio').checked,
-        transport: $('#new-transport').value,
+                audio: $('#new-audio').checked,
+                live_passthrough: $('#new-live-passthrough').checked,
+                live_rebase_ts: $('#new-live-rebase-ts').checked,
+                transport: $('#new-transport').value,
       },
     });
     $('#new-name').value = ''; $('#new-url').value = '';

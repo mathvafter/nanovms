@@ -249,6 +249,23 @@ input:focus,select:focus{outline:1px solid var(--accent)}
 }
 .camrow .grow{flex:1;min-width:200px}
 .camrow input{width:100%}
+.camrow input[type=checkbox]{width:auto}
+/* live-view flags live behind a disclosure: they fix a black or frozen tile
+   but are wrong for most cameras, so they must not clutter the common row. */
+.camadv{position:relative}
+.camadv>summary{
+  list-style:none;cursor:pointer;font-size:11px;color:var(--dim);border:1px solid var(--line);
+  border-radius:6px;padding:3px 8px;user-select:none;
+}
+.camadv>summary::-webkit-details-marker{display:none}
+.camadv>summary:hover{color:var(--fg);border-color:var(--dim)}
+.camadv[open]>summary{color:var(--fg);border-color:var(--dim)}
+.camadv[open]{
+  position:absolute;z-index:20;top:calc(100% + 6px);right:0;background:var(--panel);
+  border:1px solid var(--line);border-radius:9px;padding:10px 12px;display:flex;
+  flex-direction:column;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.45);min-width:210px;
+}
+.camadv[open] .chk{white-space:normal;font-size:12px}
 .sys{
   background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:13px;
   font-family:ui-monospace,monospace;font-size:12px;white-space:pre-wrap;color:var(--dim);margin:0;
