@@ -31,7 +31,7 @@ ExecStart=/opt/nanovms/.venv/bin/python /opt/nanovms/run.py serve
 # KillSignal=SIGKILL: both orphan the recorders and truncate the live segment.
 KillSignal=SIGTERM
 TimeoutStopSec=30
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 # ffmpeg needs RTSP out to the cameras, and must be able to seek on the

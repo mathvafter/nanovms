@@ -967,6 +967,14 @@ def _probe(url: str, cfg: dict, transport: str = "tcp", timeout: float = 12.0) -
         "browser_playable": v.get("codec_name") in ("h264", "mjpeg"),
         "note": ("live view can stream-copy (no CPU cost)" if v.get("codec_name") in ("h264", "mjpeg")
                  else f"{v.get('codec_name')} is not browser-playable: live view will transcode"),
+        # One-click recommendation so a user with no codec knowledge does not
+        # have to map the probe result onto the live_mode dropdown by hand.
+        "recommended_live_mode": ("auto" if v.get("codec_name") in ("h264", "mjpeg")
+                                    else "x264"),
+        # MJPEG/rawvideo sources cannot be stream-copied into MKV segments;
+        # recording them without re-encode yields broken files.
+        "recommended_encode": v.get("codec_name") not in
+                                ("h264", "hevc", "h265", "avc1", "hev1", "mpeg4"),
     }
 
 

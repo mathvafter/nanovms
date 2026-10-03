@@ -1553,6 +1553,9 @@ def main():
     test_camera_row_save_includes_select_fields()
     test_client_honours_per_camera_mjpeg_mode()
     test_live_view_falls_back_to_recorder_when_camera_at_connection_limit()
+    test_probe_recommends_a_setting_zero_knowledge_users_can_apply()
+    test_camera_row_allows_fixing_codec_transport_without_readding()
+    test_service_restarts_after_power_loss()
 
     print("\n" + "=" * 50)
     passed = sum(1 for _, ok, _ in results if ok)
@@ -1566,6 +1569,67 @@ def main():
         return 1
     print("All tests passed.")
     return 0
+
+
+def test_probe_recommends_a_setting_zero_knowledge_users_can_apply():
+    """Test URL must return a one-click recommendation, not just codec names.
+
+    A user with no codec knowledge cannot map "hevc" onto the live_mode
+    dropdown. The probe already knows the codec, so it should also say
+    which live_mode to pick (and whether re-encode is needed for MJPEG /
+    rawvideo sources that record broken files otherwise). The GUI shows
+    this as a "Use recommended setting" button.
+    """
+    print("[probe recommendation]")
+    from app import server as srvmod
+    import inspect
+    src = inspect.getsource(srvmod._probe)
+    check("probe returns recommended_live_mode",
+          "recommended_live_mode" in src,
+          "Test URL reports the codec but never says which live mode to pick")
+    check("probe returns recommended_encode",
+          "recommended_encode" in src,
+          "MJPEG/rawvideo users get no hint that recording needs re-encode")
+    check("GUI has a one-click apply button",
+          'id="new-apply-rec"' in (ROOT / "static" / "index.html").read_text(encoding="utf-8"),
+          "missing from index.html add-camera form")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+    check("GUI apply button writes the recommendation into the form",
+          "new-apply-rec" in js and "_lastProbeRec" in js,
+          "button exists but never applies recommended_live_mode")
+    check("add-camera form sends encode (MJPEG record fix is GUI-settable)",
+          'id="new-encode"' in (ROOT / "static" / "index.html").read_text(encoding="utf-8"),
+          "re-encode on record still requires hand-editing config.json")
+
+
+def test_camera_row_allows_fixing_codec_transport_without_readding():
+    """Every per-camera remedy must be editable on the existing row.
+
+    Deleting + re-adding a camera to change one flag loses its id (and the
+    recording folder linkage). enabled, transport and encode all change
+    how a camera connects or records, so they belong on the row next to
+    live_mode, not only in the add-camera form.
+    """
+    print("[row fix controls]")
+    js = (ROOT / "static" / "app.js").read_text(encoding="utf-8")
+    for field in ("enabled", "transport", "encode", "live_mode"):
+        check(f"camera row edits {field}",
+              f'data-f="{field}"' in js,
+              f"{field} is not editable on the camera row")
+
+
+def test_service_restarts_after_power_loss():
+    """nanovms.service must bring the NVR back after power returns.
+
+    Restart=on-failure only covers crashes, not a power cut (or an admin
+    running `systemctl stop`). Restart=always means the box resumes
+    recording on its own when power is back, with no SSH needed.
+    """
+    print("[service restart]")
+    svc = (ROOT / "nanovms.service").read_text(encoding="utf-8")
+    check("service uses Restart=always",
+          "Restart=always" in svc,
+          "a power cut leaves the NVR stopped until someone SSHes in")
 
 
 if __name__ == "__main__":

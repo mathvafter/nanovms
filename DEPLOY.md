@@ -51,10 +51,8 @@ sudo -u nanovms ./start.sh check          # verifies ffmpeg + paths
 In `config.json`:
 - `storage.root` — the path from step 3
 - each camera's `url` — rtsp://user:pass@ip:554/... **never commit this file**
-- `live_passthrough` — `true` = cheap stream copy, `false` = transcode.
-  The EZVIZ C6N needs `false`: its 1080p stream copies to a fragment sequence
-  that Chrome renders as black. cam1 (HEVC 640x480) is fine either way.
-- `live_rebase_ts: true` — required for cameras that push wallclock PTS.
+- per-camera `live_mode` (also in the browser: camera row ▸ live): `auto` = stream-copy when the browser can decode, transcode otherwise; `copy` = always copy (cheapest); `x264` = always transcode (fixes black tiles); `mjpeg` = universal fallback.
+  If a live tile stays black, set that camera's live mode to `x264` or `mjpeg` in the browser — no config edit needed.
 
 ## 5. Service
 
@@ -89,7 +87,7 @@ Recording is always `-c copy` (no decode/encode). Live view transcodes only for
 cameras that need it. Two 1080p transcodes will not fit a 2-core N3050
 comfortably — if live view of both cameras feels heavy, set
 `live.max_concurrent: 1` so only one view is ever transcoded, or point a
-camera's `live_passthrough: false` camera at a sub-stream URL (`stream=1`).
+camera's live mode to `x264` (or point it at a sub-stream URL like `stream=1`).
 
 ## Before going live
 

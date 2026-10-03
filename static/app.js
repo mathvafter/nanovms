@@ -815,8 +815,11 @@ function renderCamList() {
     row.innerHTML = `
       <div class="grow" style="max-width:180px"><input value="${cam.name}" data-f="name"></div>
       <div class="grow"><input value="${cam.url}" data-f="url" class="mono"></div>
+      <label class="chk" title="Untick to disable without deleting"><input type="checkbox" data-f="enabled" ${cam.enabled === false ? '' : 'checked'}> on</label>
       <label class="chk"><input type="checkbox" data-f="record" ${cam.record ? 'checked' : ''}> rec</label>
             <label class="chk"><input type="checkbox" data-f="audio" ${cam.audio ? 'checked' : ''}> audio</label>
+            <label class="chk" title="Tick for MJPEG / rawvideo cameras that record broken files otherwise"><input type="checkbox" data-f="encode" ${cam.encode ? 'checked' : ''}> enc</label>
+            <label title="RTSP transport for this camera (empty = server default)">net <select data-f="transport">${['', 'tcp', 'udp', 'http'].map((o) => `<option value='${o}' ${(cam.transport || '') === o ? 'selected' : ''}>${o || 'default'}</option>`).join('')}</select></label>
             <span class="cam-tag ${r.state === 'recording' ? 'rec' : ''}">${r.state || 'idle'}</span>
             <span class="hint">pid ${r.pid || '-'}${r.restarts ? ` &middot; ${r.restarts} restarts` : ''}</span>
             <details class="camadv"><summary title="Live view options">live</summary>
@@ -995,10 +998,29 @@ $('#new-test').addEventListener('click', async () => {
       `bitrate : ${j.bitrate_kbps} kbps (~${j.est_gb_per_day} GB/day if recorded)\n` +
       `live    : ${j.browser_playable ? 'stream copy, no transcode' : 'WILL TRANSCODE'}\n` +
       `note    : ${j.note}`;
+    // One click applies the probe recommendation so zero-knowledge users
+    // never map codec names onto the live_mode dropdown by hand.
+    window._lastProbeRec = j;
+    const recBtn = $('#new-apply-rec');
+    if (recBtn) {
+      const needChange = (j.recommended_live_mode && j.recommended_live_mode !== $('#new-live-mode').value) ||
+        (j.recommended_encode && !$('#new-encode').checked);
+      recBtn.classList.toggle('hidden', !needChange);
+      recBtn.textContent = `Use recommended setting (live: ${j.recommended_live_mode || 'auto'}${j.recommended_encode ? ', re-encode on' : ''})`;
+    }
   } catch (e) {
     out.className = 'test-out bad';
     out.textContent = 'FAILED: ' + e.message;
   }
+});
+
+$('#new-apply-rec').addEventListener('click', () => {
+  const j = window._lastProbeRec;
+  if (!j) return;
+  if (j.recommended_live_mode) $('#new-live-mode').value = j.recommended_live_mode;
+  if (j.recommended_encode) $('#new-encode').checked = true;
+  $('#new-apply-rec').classList.add('hidden');
+  toast('recommended setting applied - press Add camera', 'ok');
 });
 
 $('#new-add').addEventListener('click', async () => {
@@ -1013,6 +1035,7 @@ $('#new-add').addEventListener('click', async () => {
         url,
         record: $('#new-record').checked,
                 audio: $('#new-audio').checked,
+                encode: $('#new-encode').checked,
                 live_mode: $('#new-live-mode').value,
                 transport: $('#new-transport').value,
       },

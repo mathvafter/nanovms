@@ -14,7 +14,7 @@ Recording is `ffmpeg -c copy` (stream copy, no decode/encode), so a Celeron N305
 ## Quick start
 
 ```bash
-git clone <this-repo> nanovms && cd nanovms && ./setup.sh
+git clone https://github.com/mathvafter/nanovms.git && cd nanovms && ./setup.sh
 ```
 
 `setup.sh` checks python + ffmpeg, creates `config.json` from the template, and
@@ -140,10 +140,12 @@ the usual answer if you need to expose it to the internet at all.
       "id": "cam1",
       "name": "Front gate",
       "url": "rtsp://...",
-      "enabled": true,
+      "enabled": true,       // untick "on" in the GUI to disable without deleting
       "record": true,
       "audio": false,
-      "transport": "",       // "" = inherit ffmpeg.rtsp_transport
+      "transport": "",       // "" = inherit ffmpeg.rtsp_transport (per-camera override in the row)
+      "live_mode": "auto",   // auto | copy | x264 | mjpeg - per-camera dropdown in the GUI
+      "encode": false,        // true = re-encode on record (MJPEG/rawvideo cameras)
       "segment_minutes": 0,  // 0 = inherit storage.segment_minutes
       "encode": false,       // true for MJPEG/rawvideo sources
       "encode_fps": 10
@@ -222,7 +224,7 @@ systemctl enable --now nanovms
 ## Testing
 
 ```bash
-python test_nanovms.py     # 90 tests, no camera or network required
+python test_nanovms.py     # full suite, no camera or network required
 ```
 
 ## File layout

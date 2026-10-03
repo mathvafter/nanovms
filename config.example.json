@@ -54,7 +54,7 @@
       "audio": false,
       "transport": "tcp",
       "segment_minutes": 0,
-      "notes": "Hikvision main stream. Dahua: rtsp://user:pass@ip:554/cam/realmonitor?channel=1&subtype=0"
+      "notes": "Hikvision main stream. Dahua: rtsp://user:pass@ip:554/cam/realmonitor?channel=1&subtype=0. If the live tile stays black, set live_mode to x264 or mjpeg in the browser."
     },
     {
       "id": "cam2",
@@ -62,7 +62,6 @@
       "url": "rtsp://admin:password@192.168.1.51:554/Streaming/Channels/102",
       "enabled": false,
       "live_mode": "auto",
-      "live_rebase_ts": true,
       "record": true,
       "audio": false,
       "segment_minutes": 0,

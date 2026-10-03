@@ -124,6 +124,7 @@
         placeholder="rtsp://user:pass@192.168.1.50:554/Streaming/Channels/101"></label>
       <label class="chk"><input type="checkbox" id="new-record" checked> record</label>
             <label class="chk"><input type="checkbox" id="new-audio"> audio</label>
+            <label class="chk" title="Tick for MJPEG / rawvideo cameras that record broken files otherwise"><input type="checkbox" id="new-encode"> re-encode on record</label>
             <label>Live mode
               <select id="new-live-mode">
                 <option value="auto" selected>auto</option>
@@ -132,16 +133,16 @@
                 <option value="mjpeg">mjpeg</option>
               </select></label>
             <p class="hint wide">If the live tile stays black: try <b>x264</b> or <b>mjpeg</b>.
-              If frozen on one frame: try <b>mjpeg</b>.</p>
+              If frozen on one frame: try <b>mjpeg</b>.
             <label>Transport <select id="new-transport">
               <option value="">default</option><option value="tcp">tcp</option>
               <option value="udp">udp</option><option value="http">http</option></select></label>
-              (&quot;Test URL&quot; reports whether the browser can play it directly).
-              Leave <b>rebase timestamps</b> on unless the picture is frozen on one
-              frame; unticking it is only correct for a source that already starts
-              near zero. Both can be changed later on the camera row.</p>
+              (&quot;Test URL&quot; reports whether the browser can play it directly
+              and offers a one-click <b>Use recommended setting</b> that picks the
+              right live mode for you).</p>
       <div class="formrow">
         <button class="btn ghost" id="new-test">Test URL</button>
+        <button class="btn ghost hidden" id="new-apply-rec">Use recommended setting</button>
         <button class="btn" id="new-add">Add camera</button>
       </div>
       <div class="test-out" id="new-test-out"></div>
@@ -166,6 +167,7 @@
     <h2>Live view</h2>
     <div class="form">
       <label>Max concurrent streams <input type="number" id="cfg-maxlive" min="1" max="8"></label>
+      <p class="hint wide" id="cfg-maxlive-hint">Weak box (e.g. Celeron N3050): keep <b>2</b> or below so transcodes never pile up. Powerful machine: raise freely &mdash; recording is always stream-copy, only live view costs CPU.</p>
       <label>Idle timeout sec <input type="number" id="cfg-idle" min="10" max="600"></label>
       <label>Transcode FPS <input type="number" id="cfg-fps" min="1" max="25"></label>
       <label>Max width <input type="number" id="cfg-width" min="160" max="3840"></label>
