@@ -1,48 +1,38 @@
-# NanoVMS - lightweight NVR, systemd unit for Debian.
+# NanoVMS - lightweight NVR, systemd unit.
 #
-#   sudo cp nanovms.service /etc/systemd/system/
-#   sudo systemctl daemon-reload
-#   sudo systemctl enable --now nanovms
-#   systemctl status nanovms
-#   journalctl -u nanovms -f
-#
-# The Celeron N3050 has no hardware video encoder usable here, so this runs one
-# ffmpeg per camera: a stream copy for recording (cheap) and, on demand, a
-# transcode for live view of any camera the browser cannot decode directly.
+# 1. Edit the paths below to match your install location.
+# 2. Copy and enable:
+#      sudo cp nanovms.service /etc/systemd/system/
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable --now nanovms
+#      systemctl status nanovms
+#      journalctl -u nanovms -f
 
 [Unit]
 Description=NanoVMS lightweight NVR
-Documentation=file:/opt/nanovms/README.md
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=nanovms
-Group=nanovms
-WorkingDirectory=/opt/nanovms
 
-# `serve` reads config.json from the working directory. Storage lives on the
-# big disk, not the system partition; change only if that path is wrong.
+# --- EDIT THESE to match your install ---
+# If you cloned to /root/nanovms, change /opt/nanovms below.
+WorkingDirectory=/opt/nanovms
 ExecStart=/opt/nanovms/.venv/bin/python /opt/nanovms/run.py serve
+# If your storage_root is under /home, uncomment:
+# ReadWritePaths=/home
+
+# Optional: run as dedicated user (create with: useradd -r -s /usr/sbin/nologin nanovms)
+# User=nanovms
+# Group=nanovms
 
 # SIGTERM makes run.py call app.shutdown(), which writes `q` to each ffmpeg's
-# stdin so the MKV trailer gets written. Do NOT set KillMode=process or use
-# KillSignal=SIGKILL: both orphan the recorders and truncate the live segment.
+# stdin so the MKV trailer gets written. Do NOT use KillSignal=SIGKILL.
 KillSignal=SIGTERM
 TimeoutStopSec=30
 Restart=always
 RestartSec=5
-
-# ffmpeg needs RTSP out to the cameras, and must be able to seek on the
-# recording volume. Nothing else should be visible to it.
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=full
-ProtectHome=read-only
-ReadWritePaths=/opt/nanovms /srv/nanovms
-# uncomment if recordings live under /home (ProtectHome=read-only blocks writes)
-# ReadWritePaths=/home/nanovms
 
 StandardOutput=journal
 StandardError=journal
