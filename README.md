@@ -11,11 +11,11 @@ cd nanovms
 
 Open that address in a browser → **Setup tab** → paste a camera RTSP URL → **Test URL** → **Add**. Done. Live view, recording, playback, and codec fixes are all buttons in that page — nothing to edit by hand.
 
-What you need: **Python 3.10+**, **ffmpeg**, and any camera that speaks **RTSP** (Hikvision, Dahua, Reolink, Tapo, ONVIF…). Recording is stream-copy (`ffmpeg -c copy`), so even a weak box like a Celeron N3050 records several cameras at ~2% CPU each.
+What you need: **Python 3.10+**, **ffmpeg**, and any camera that speaks **RTSP** (Hikvision, Dahua, Reolink, Tapo, ONVIF…). Recording is stream-copy (`ffmpeg -c copy`), so even weak hardware records several cameras at ~2% CPU each.
 
 Your camera passwords live in `config.json` on your machine only — that file is never committed to git.
 
-Works on: **Linux** (Debian/CasaOS/NUC), **Windows**, **macOS**. Want it always-on after reboot? See [DEPLOY.md](DEPLOY.md) (one systemd service file included).
+Works on **Linux**, **Windows**, **macOS**. Want it always-on after reboot? See [DEPLOY.md](DEPLOY.md) (one systemd service file included).
 
 ---
 
@@ -209,30 +209,12 @@ camera (H.264 RTSP)
 If the camera streams H.264 or MJPEG: ffmpeg only demuxes+remuxes, no pixel touched.
 If the camera streams HEVC/H.265: NanoVMS transcodes to H.264 baseline with `-preset ultrafast`. This is the only expensive path.
 
-## Deployment on Debian/CasaOS
+## Deployment on Debian (systemd)
 
-```bash
-# as a systemd service
-cat > /etc/systemd/system/nanovms.service << 'EOF'
-[Unit]
-Description=NanoVMS
-After=network.target
-
-[Service]
-Type=simple
-User=YOUR_USER
-WorkingDirectory=/home/YOUR_USER/nanovms
-ExecStart=/usr/bin/python3 run.py
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-systemctl daemon-reload
-systemctl enable --now nanovms
-```
+See [DEPLOY.md](DEPLOY.md) — copy the project to `/opt/nanovms`, point
+`storage.root` at a disk with room, copy the included `nanovms.service` to
+`/etc/systemd/system/`, then `systemctl enable --now nanovms`.
+`Restart=always` brings it back after power loss or reboot.
 
 ## Testing
 

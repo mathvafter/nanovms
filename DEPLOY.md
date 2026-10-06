@@ -1,13 +1,11 @@
-# Deploying NanoVMS to the NUC (Debian)
+# Deploying NanoVMS on Linux (systemd)
 
-Target: Intel NUC5CPYH, Celeron N3050, Debian, root filesystem ~40 GB with the
-rest on /home. This is the machine NanoVMS is for; it was developed and tested on
-a Windows PC first.
+Run NanoVMS 24/7 with auto-start after reboot. Any Debian/Ubuntu machine works.
 
 ## 1. Copy the project
 
 ```sh
-# on the NUC
+# on the server
 sudo useradd -r -m -d /opt/nanovms nanovms 2>/dev/null || true
 sudo mkdir -p /opt/nanovms
 # copy the nanovms/ directory contents here (rsync -a --exclude __pycache__)
@@ -25,7 +23,7 @@ ffmpeg -version | head -1        # need 6.x or newer
 
 ## 3. Storage
 
-Recordings must NOT go on the 40 GB root partition. Point them at the big disk:
+Recordings should NOT go on a small root partition. Point them at a disk with room:
 
 ```sh
 sudo mkdir -p /srv/nanovms
@@ -64,11 +62,13 @@ systemctl status nanovms
 journalctl -u nanovms -f
 ```
 
+The unit uses `Restart=always`, so the NVR comes back after power loss or reboot.
+
 ## Verifying the stop path
 
 `systemctl stop` sends SIGTERM. If that is mishandled, ffmpeg is orphaned and
 the in-progress segment loses its MKV trailer, so playback reports it corrupt
-forever. Check it once on the NUC:
+forever. Check it once on the server:
 
 ```sh
 systemctl stop nanovms
@@ -84,17 +84,16 @@ signal cannot be caught and the same truncation happens. The unit already sets
 ## CPU budget
 
 Recording is always `-c copy` (no decode/encode). Live view transcodes only for
-cameras that need it. Two 1080p transcodes will not fit a 2-core N3050
-comfortably — if live view of both cameras feels heavy, set
+cameras that need it. On weak 2-core hardware, two 1080p transcodes at once is
+too much — if live view feels heavy, set
 `live.max_concurrent: 1` so only one view is ever transcoded, or point a
 camera's live mode to `x264` (or point it at a sub-stream URL like `stream=1`).
 
 ## Before going live
 
-- [ ] Rotate the camera password. It has appeared in screenshots and terminal
-      output during development on the PC.
-- [ ] Confirm the camera RTSP URLs are reachable from the NUC, not just the PC.
+- [ ] Use a dedicated camera password (the RTSP URL holds it in plain text).
+- [ ] Confirm the camera RTSP URLs are reachable from this machine, not just your PC.
 - [ ] `sudo -u nanovms ./start.sh test 'rtsp://...'` to probe each camera.
-- [ ] Run the suite on the NUC too: `python3 test_nanovms.py`. The
+- [ ] Run the suite here too: `python3 test_nanovms.py`. The
       SIGTERM end-to-end leg only runs on POSIX, so it will actually execute
       here rather than being skipped.
