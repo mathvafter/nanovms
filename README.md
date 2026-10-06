@@ -1,8 +1,21 @@
 # NanoVMS
 
-Lightweight NVR (network video recorder) built for resource-constrained hardware.
+Turn any spare computer into a security-camera recorder. No cloud account, no subscription, no database — just install, open the web page it prints, paste your camera's address, and it starts recording.
 
-Recording is `ffmpeg -c copy` (stream copy, no decode/encode), so a Celeron N3050-class box records several cameras at ~2% CPU each. Live view and playback reach the browser as fMP4 over MSE, transcoding to H.264 only when the browser cannot decode the camera's native codec.
+```bash
+git clone https://github.com/mathvafter/nanovms.git
+cd nanovms
+./setup.sh        # checks python + ffmpeg, creates config, runs self-tests
+./start.sh serve  # prints the address to open, e.g. http://192.168.1.50:1900
+```
+
+Open that address in a browser → **Setup tab** → paste a camera RTSP URL → **Test URL** → **Add**. Done. Live view, recording, playback, and codec fixes are all buttons in that page — nothing to edit by hand.
+
+What you need: **Python 3.10+**, **ffmpeg**, and any camera that speaks **RTSP** (Hikvision, Dahua, Reolink, Tapo, ONVIF…). Recording is stream-copy (`ffmpeg -c copy`), so even a weak box like a Celeron N3050 records several cameras at ~2% CPU each.
+
+Your camera passwords live in `config.json` on your machine only — that file is never committed to git.
+
+Works on: **Linux** (Debian/CasaOS/NUC), **Windows**, **macOS**. Want it always-on after reboot? See [DEPLOY.md](DEPLOY.md) (one systemd service file included).
 
 ---
 
