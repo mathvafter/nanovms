@@ -1,6 +1,6 @@
-"""NanoVMS headless tests - no camera required, no network required.
+"""JagaNVR headless tests - no camera required, no network required.
 
-Run: python test_nanovms.py
+Run: python test_jaganvr.py
 All tests use real code paths with a lavfi synthetic source or mocked data.
 """
 import json
@@ -78,7 +78,7 @@ def test_config():
 
 def test_index():
     print("\n[index]")
-    with tempfile.TemporaryDirectory(prefix="nanovms-test-") as td:
+    with tempfile.TemporaryDirectory(prefix="jaganvr-test-") as td:
         root = Path(td)
         cam = "cam1"
         d = root / cam
@@ -150,7 +150,7 @@ def test_index():
 def test_http():
     print("\n[http]")
 
-    with tempfile.TemporaryDirectory(prefix="nanovms-http-") as td:
+    with tempfile.TemporaryDirectory(prefix="jaganvr-http-") as td:
         root = Path(td)
         cfg_path = root / "config.json"
         cfg = cfgmod.normalize({
@@ -446,7 +446,7 @@ def test_plan_window():
     print("\n[export.plan_window]")
     from app.export import plan_window
     from app.playback import PlaybackSession
-    with tempfile.TemporaryDirectory(prefix="nanovms-pw-") as td:
+    with tempfile.TemporaryDirectory(prefix="jaganvr-pw-") as td:
         root = Path(td)
         cam = "cam1"
         d = root / cam
@@ -579,7 +579,7 @@ def test_live_and_playback_fragments_start_on_keyframe():
           "(gop_ms <= frag_ms)", tgop * 1000 // tfps <= tfrag,
           "gop=%dms frag=%dms %s" % (tgop * 1000 // tfps, tfrag, tjoined[-160:]))
 
-    with _tf.TemporaryDirectory(prefix="nanovms-pb-") as td:
+    with _tf.TemporaryDirectory(prefix="jaganvr-pb-") as td:
         pcfg = normalize({"storage": {"root": td}})
         pcfg["cameras"] = [cam]
         ps = PlaybackSession("k", pcfg, 0, 0, cam_id="cam1")
@@ -686,7 +686,7 @@ def test_index_caps_segment_at_real_duration():
     """
     print("\n[index real duration cap]")
     from app.export import plan_window
-    with tempfile.TemporaryDirectory(prefix="nanovms-dur-") as td:
+    with tempfile.TemporaryDirectory(prefix="jaganvr-dur-") as td:
         root = Path(td)
         d = root / "cam1"
         d.mkdir()
@@ -729,7 +729,7 @@ def test_graceful_stop_finalises_segment():
         print("  SKIP  ffmpeg not found")
         return
 
-    with tempfile.TemporaryDirectory(prefix="nanovms-grace-") as td:
+    with tempfile.TemporaryDirectory(prefix="jaganvr-grace-") as td:
         root = Path(td)
         # segment_minutes=60 so the muxer never rolls over on its own and the
         # only thing that can close the file is our stop()
@@ -819,7 +819,7 @@ def test_startup_warning_does_not_crash():
 
 
 def test_live_view_falls_back_to_recorder_when_camera_at_connection_limit():
-    """Cam2 allows 1 RTSP session, NanoVMS needs 2 (recorder + live). When the
+    """Cam2 allows 1 RTSP session, JagaNVR needs 2 (recorder + live). When the
     live view ffmpeg gets a 500 on connection, the server must fall back to
     reading the recorder's in-progress MKV segment instead of showing a dead
     tile. LiveFromRecorder rewraps the file to fMP4 with the same frag params.
@@ -856,7 +856,7 @@ def test_folder_picker_builds_paths_with_the_platform_separator():
     """Clicking a folder must not build a Windows path on Linux.
 
     listDir and validatePath both joined with a hardcoded "\\", so on Linux
-    the picker produced /home/user\\nanovms - a literal backslash in a filename,
+    the picker produced /home/user\\jaganvr - a literal backslash in a filename,
     not a separator. The server correctly rejected it ("not a folder") and the
     picker appeared broken: Up worked, folders listed, but every click was a
     dead end. os.path.join is the portable answer.
@@ -876,11 +876,11 @@ def test_folder_picker_builds_paths_with_the_platform_separator():
     # The server now strips backslashes before abspath on non-Windows, so a
     # Windows-authored path resolves correctly instead of failing isdir.
     if not IS_WIN:
-        raw = "/home/user\\nanovms"
+        raw = "/home/user\\jaganvr"
         fixed = os.path.abspath(raw.replace("\\", "/"))
         check("a backslash path normalises to a real folder on POSIX",
               os.path.isdir(fixed),
-              "expected /home/user/nanovms to be a dir, got %r" % fixed)
+              "expected /home/user/jaganvr to be a dir, got %r" % fixed)
 
 
 def test_storage_picker_accepts_a_typed_path():
@@ -982,7 +982,7 @@ def test_shell_scripts_are_unix_line_endings():
     """
     print("\n[line endings]")
     CR = b"\r"
-    for name in ("setup.sh", "start.sh", "nanovms.service", "DEPLOY.md"):
+    for name in ("setup.sh", "start.sh", "jaganvr.service", "DEPLOY.md"):
         fp = ROOT / name
         if not fp.exists():
             continue
@@ -1148,7 +1148,7 @@ def test_per_camera_live_codec_is_choosable_without_editing_config():
     the README tells a new user not to do. Every live-view failure mode maps to
     a different codec path, so the choice has to be reachable per camera:
 
-      auto   - let NanoVMS decide from the probed codec (browser-playable ->
+      auto   - let JagaNVR decide from the probed codec (browser-playable ->
                stream copy, otherwise transcode). The safe default.
       copy   - force -c:v copy. Cheapest, but needs a browser-playable codec
                AND frequent keyframes, or the fragment starts mid-GOP.
@@ -1356,7 +1356,7 @@ def test_sigterm_finalises_segment():
 
     if IS_WIN:
         # TerminateProcess cannot be trapped; assert the real cleanup instead.
-        with tempfile.TemporaryDirectory(prefix="nanovms-sigterm-") as td:
+        with tempfile.TemporaryDirectory(prefix="jaganvr-sigterm-") as td:
             root = Path(td)
             cfg = cfgmod.normalize({
                 "storage": {"root": str(root), "segment_minutes": 60},
@@ -1399,7 +1399,7 @@ def test_sigterm_finalises_segment():
         return
 
     # --- POSIX: drive the real signal path ----------------------------------
-    with tempfile.TemporaryDirectory(prefix="nanovms-sigterm-") as td:
+    with tempfile.TemporaryDirectory(prefix="jaganvr-sigterm-") as td:
         root = Path(td)
         cfg_path = root / "config.json"
         cfg = cfgmod.normalize({
@@ -1523,7 +1523,7 @@ def test_recorder_cmd():
 # ---------------------------------------------------------------- run -------
 
 def main():
-    print("NanoVMS test suite")
+    print("JagaNVR test suite")
     print("=" * 50)
     test_config()
     test_index()
@@ -1619,14 +1619,14 @@ def test_camera_row_allows_fixing_codec_transport_without_readding():
 
 
 def test_service_restarts_after_power_loss():
-    """nanovms.service must bring the NVR back after power returns.
+    """jaganvr.service must bring the NVR back after power returns.
 
     Restart=on-failure only covers crashes, not a power cut (or an admin
     running `systemctl stop`). Restart=always means the box resumes
     recording on its own when power is back, with no SSH needed.
     """
     print("[service restart]")
-    svc = (ROOT / "nanovms.service").read_text(encoding="utf-8")
+    svc = (ROOT / "jaganvr.service").read_text(encoding="utf-8")
     check("service uses Restart=always",
           "Restart=always" in svc,
           "a power cut leaves the NVR stopped until someone SSHes in")

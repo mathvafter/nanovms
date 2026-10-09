@@ -1,4 +1,4 @@
-"""NanoVMS - recording playback.
+"""JagaNVR - recording playback.
 
 Recordings are MKV (browser can't play that), so playback runs ffmpeg once per
 requested time window and remuxes to fragmented MP4 with `-c copy` - no

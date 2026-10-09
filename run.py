@@ -1,4 +1,4 @@
-"""NanoVMS CLI.
+"""JagaNVR CLI.
 
     python run.py                     start server (config.json)
     python run.py --port 9000
@@ -96,7 +96,7 @@ def cmd_serve(args) -> int:
     while time.time() < deadline and n_rec < len(cfg["cameras"]):
         time.sleep(0.1)
         n_rec = app.recorders.recording_count()
-    print(f"NanoVMS listening on http://{shown}:{port}  "
+    print(f"JagaNVR listening on http://{shown}:{port}  "
           f"({n_rec}/{len(cfg['cameras'])} cameras recording)")
     _print_bind_warning(host, port)
     if args.open_browser:
@@ -225,7 +225,7 @@ def cmd_check(args) -> int:
 
 
 def main() -> int:
-    p = argparse.ArgumentParser(prog="run.py", description="NanoVMS - lightweight NVR")
+    p = argparse.ArgumentParser(prog="run.py", description="JagaNVR - lightweight NVR")
     p.add_argument("--config", default=None, help="path to config.json")
     sub = p.add_subparsers(dest="cmd")
 

@@ -1,4 +1,4 @@
-"""NanoVMS - config load/save.
+"""JagaNVR - config load/save.
 
 Single JSON file (config.json) beside the app root. Missing keys are filled
 from DEFAULTS so upgrades never break an existing config.
@@ -69,7 +69,7 @@ CAMERA_DEFAULTS: dict[str, Any] = {
     "loop": False,            # true only for file:// / test sources
     "live_passthrough": True, # true = copy video for live view (no transcode)
     "live_rebase_ts": True,  # rebase camera wallclock PTS to 0 for the browser
-    # Which video path the live view takes. "auto" lets NanoVMS decide from the
+    # Which video path the live view takes. "auto" lets JagaNVR decide from the
     # probed codec, which is right for almost every camera; the explicit values
     # are the escape hatches a user needs when a tile is black or frozen and
     # hand-editing this file is not an option.

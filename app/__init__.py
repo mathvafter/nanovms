@@ -1,1 +1,1 @@
-"""NanoVMS application package."""
+"""JagaNVR application package."""

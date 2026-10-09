@@ -1,4 +1,4 @@
-# NanoVMS
+# JagaNVR
 
 Record your security cameras on your own computer. No cloud, no subscription, no monthly fee.
 
@@ -36,11 +36,11 @@ python3 --version
 ffmpeg -version | head -1
 ```
 
-## Step 2: Download NanoVMS
+## Step 2: Download JagaNVR
 
 ```bash
-git clone https://github.com/mathvafter/nanovms.git
-cd nanovms
+git clone https://github.com/mathvafter/jaganvr.git
+cd jaganvr
 ```
 
 No git? Click **Code -> Download ZIP** on GitHub, unzip, open the folder.
@@ -66,7 +66,7 @@ Windows: `start.bat`
 It prints an address like:
 
 ```
-NanoVMS listening on http://0.0.0.0:1900
+JagaNVR listening on http://0.0.0.0:1900
   Reachable at: http://192.168.1.50:1900
 ```
 
@@ -114,16 +114,16 @@ If still black, try **mjpeg**.
 **Linux (systemd)** — copy to `/opt`, point storage at a disk, install the service:
 
 ```bash
-sudo useradd -r -m -d /opt/nanovms nanovms 2>/dev/null || true
-sudo mkdir -p /opt/nanovms /srv/nanovms
-sudo cp -r . /opt/nanovms/ && sudo chown -R nanovms:nanovms /opt/nanovms /srv/nanovms
-# in /opt/nanovms/config.json set: "storage": { "root": "/srv/nanovms" }
-sudo cp /opt/nanovms/nanovms.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now nanovms
-systemctl status nanovms
+sudo useradd -r -m -d /opt/jaganvr jaganvr 2>/dev/null || true
+sudo mkdir -p /opt/jaganvr /srv/jaganvr
+sudo cp -r . /opt/jaganvr/ && sudo chown -R jaganvr:jaganvr /opt/jaganvr /srv/jaganvr
+# in /opt/jaganvr/config.json set: "storage": { "root": "/srv/jaganvr" }
+sudo cp /opt/jaganvr/jaganvr.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now jaganvr
+systemctl status jaganvr
 ```
 
-`Restart=always` brings it back after power loss. Check the log anytime: `journalctl -u nanovms -f`.
+`Restart=always` brings it back after power loss. Check the log anytime: `journalctl -u jaganvr -f`.
 
 - **Windows:** put `start.bat` in Startup, or run it as a scheduled task.
 - **macOS:** use `launchd`, or just leave the terminal open.
@@ -166,17 +166,17 @@ You never need to edit this by hand - the web UI does it. But this is what it ho
 <summary>For developers: tests, API, file layout</summary>
 
 ```bash
-python3 test_nanovms.py     # full suite, no camera needed
+python3 test_jaganvr.py     # full suite, no camera needed
 ```
 
 Main API routes: `GET /api/status`, `GET/POST /api/cameras`, `GET/PUT/DELETE /api/cameras/<id>`, `GET /api/segments?cam=<id>&day=YYYY-MM-DD`, `GET/POST /api/clips`, `GET /api/live/<id>/mjpeg`, `GET /api/snapshot/<id>.jpg`, `POST /api/test`, `POST /api/shutdown`.
 
 ```
-nanovms/
+jaganvr/
 +-- run.py              start + CLI
 +-- config.json         your settings (created for you, never committed)
 +-- config.example.json template
-+-- test_nanovms.py     self-tests
++-- test_jaganvr.py     self-tests
 +-- start.sh / start.bat launchers
 +-- app/                server, recorder, live, playback, clips
 +-- static/             web page (no build step)

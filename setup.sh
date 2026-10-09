@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # First-run setup for a fresh machine. Idempotent: safe to re-run.
 #
-#   git clone <your-repo> nanovms && cd nanovms && ./setup.sh
+#   git clone <your-repo> jaganvr && cd jaganvr && ./setup.sh
 #
 # Creates config.json from the template if absent, verifies ffmpeg, and runs
 # the test suite. It never overwrites an existing config.json.
@@ -24,7 +24,7 @@ echo "== ffmpeg =="
 if command -v ffmpeg >/dev/null 2>&1; then
   ok "$(ffmpeg -version 2>/dev/null | head -1)"
 else
-  warn "ffmpeg not found - NanoVMS cannot record without it"
+  warn "ffmpeg not found - JagaNVR cannot record without it"
   warn "  Debian/Ubuntu:  sudo apt install -y ffmpeg"
   warn "  Fedora:         sudo dnf install ffmpeg"
   warn "  macOS:          brew install ffmpeg"
@@ -57,7 +57,7 @@ elif [ -n "$ROOT" ]; then
 fi
 
 echo "== tests =="
-if "$PY" test_nanovms.py; then
+if "$PY" test_jaganvr.py; then
   ok "test suite passed"
 else
   die "tests failed - fix before deploying"
@@ -90,5 +90,5 @@ Then, in the browser: Setup tab -> paste a camera RTSP url -> Test url -> Add.
 Live view, recording, playback and codec settings are all done in the UI.
 No need to edit config.json by hand.
 
-Running as a service on Debian? See DEPLOY.md and nanovms.service.
+Running as a service on Debian? See DEPLOY.md and jaganvr.service.
 EOF

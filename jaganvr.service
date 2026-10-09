@@ -1,15 +1,15 @@
-# NanoVMS - lightweight NVR, systemd unit.
+# JagaNVR - lightweight NVR, systemd unit.
 #
 # 1. Edit the paths below to match your install location.
 # 2. Copy and enable:
-#      sudo cp nanovms.service /etc/systemd/system/
+#      sudo cp jaganvr.service /etc/systemd/system/
 #      sudo systemctl daemon-reload
-#      sudo systemctl enable --now nanovms
-#      systemctl status nanovms
-#      journalctl -u nanovms -f
+#      sudo systemctl enable --now jaganvr
+#      systemctl status jaganvr
+#      journalctl -u jaganvr -f
 
 [Unit]
-Description=NanoVMS lightweight NVR
+Description=JagaNVR lightweight NVR
 After=network-online.target
 Wants=network-online.target
 
@@ -17,15 +17,15 @@ Wants=network-online.target
 Type=simple
 
 # --- EDIT THESE to match your install ---
-# If you cloned to /root/nanovms, change /opt/nanovms below.
-WorkingDirectory=/opt/nanovms
-ExecStart=/opt/nanovms/.venv/bin/python /opt/nanovms/run.py serve
+# If you cloned to /root/jaganvr, change /opt/jaganvr below.
+WorkingDirectory=/opt/jaganvr
+ExecStart=/opt/jaganvr/.venv/bin/python /opt/jaganvr/run.py serve
 # If your storage_root is under /home, uncomment:
 # ReadWritePaths=/home
 
-# Optional: run as dedicated user (create with: useradd -r -s /usr/sbin/nologin nanovms)
-# User=nanovms
-# Group=nanovms
+# Optional: run as dedicated user (create with: useradd -r -s /usr/sbin/nologin jaganvr)
+# User=jaganvr
+# Group=jaganvr
 
 # SIGTERM makes run.py call app.shutdown(), which writes `q` to each ffmpeg's
 # stdin so the MKV trailer gets written. Do NOT use KillSignal=SIGKILL.
@@ -36,7 +36,7 @@ RestartSec=5
 
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=nanovms
+SyslogIdentifier=jaganvr
 
 [Install]
 WantedBy=multi-user.target

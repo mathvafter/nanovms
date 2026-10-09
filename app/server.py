@@ -1,4 +1,4 @@
-"""NanoVMS - HTTP entrypoint. stdlib ThreadingHTTPServer + JSON API + static UI."""
+"""JagaNVR - HTTP entrypoint. stdlib ThreadingHTTPServer + JSON API + static UI."""
 from __future__ import annotations
 
 import json
@@ -148,7 +148,7 @@ def _float(v, default, lo=None, hi=None):
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "NanoVMS/1.0"
+    server_version = "JagaNVR/1.0"
     protocol_version = "HTTP/1.1"
     app: App = None  # type: ignore[assignment]
 
@@ -326,7 +326,7 @@ class Handler(BaseHTTPRequestHandler):
                 writable = False
                 if exists:
                     try:
-                        test = os.path.join(resolved, ".nanovms_write_test")
+                        test = os.path.join(resolved, ".jaganvr_write_test")
                         open(test, "w").close()
                         os.unlink(test)
                         writable = True
@@ -707,16 +707,16 @@ class Handler(BaseHTTPRequestHandler):
         if not s.init_ready:
             return self._err(504, s.error or "timed out waiting for complete stream header")
         s.touch()
-        extra = {"X-NanoVMS-Session": s.key,
+        extra = {"X-JagaNVR-Session": s.key,
                  "Access-Control-Allow-Origin": "*"}
         codec = getattr(s, "codec", "")
         if codec:
-            extra["X-NanoVMS-Codec"] = codec
-            extra["X-NanoVMS-Transcode"] = "1" if s.transcoding else "0"
-            extra["X-NanoVMS-Resolution"] = f"{getattr(s, 'width', 0)}x{getattr(s, 'height', 0)}"
+            extra["X-JagaNVR-Codec"] = codec
+            extra["X-JagaNVR-Transcode"] = "1" if s.transcoding else "0"
+            extra["X-JagaNVR-Resolution"] = f"{getattr(s, 'width', 0)}x{getattr(s, 'height', 0)}"
         acodec = getattr(s, "audio_codec", "")
         if acodec:
-            extra["X-NanoVMS-Audio-Codec"] = acodec
+            extra["X-JagaNVR-Audio-Codec"] = acodec
         return self._send(200, s.init, "video/mp4", extra, head_only=head)
 
     def _forward_fragments(self, s, head: bool, cursor_default: int = 0):
@@ -738,8 +738,8 @@ class Handler(BaseHTTPRequestHandler):
             if len(buf) >= 200_000:
                 break
         extra = {"Access-Control-Allow-Origin": "*",
-                 "X-NanoVMS-Cursor": str(cursor),
-                 "X-NanoVMS-EOF": "1" if eof else "0"}
+                 "X-JagaNVR-Cursor": str(cursor),
+                 "X-JagaNVR-EOF": "1" if eof else "0"}
         if not buf:
             self.send_response(204)
             self.send_header("Content-Length", "0")
@@ -812,7 +812,7 @@ class Handler(BaseHTTPRequestHandler):
         lc = app.cfg["live"]
         fps = _int(self._q().get("fps"), int(lc.get("fps", 8)), 1, 25)
         width = _int(self._q().get("w"), 640, 160, 1920)
-        boundary = "nanovmsframe"
+        boundary = "jaganvrframe"
 
         with app.live._lock:                      # count as a live viewer
             pass

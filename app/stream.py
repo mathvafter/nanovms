@@ -1,4 +1,4 @@
-"""NanoVMS - shared fragmented-MP4 streamer.
+"""JagaNVR - shared fragmented-MP4 streamer.
 
 Both live view and recording playback need the same thing: run ffmpeg once,
 chop its stdout into MP4 fragments, and hand fragments to any number of

@@ -1,4 +1,4 @@
-"""NanoVMS - on-demand live view.
+"""JagaNVR - on-demand live view.
 
 Cost design (why this is built the way it is):
   * Nothing runs until a human opens the stream, and it tears itself down after

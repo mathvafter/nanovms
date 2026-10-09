@@ -1,4 +1,4 @@
-"""NanoVMS - filesystem index. No database.
+"""JagaNVR - filesystem index. No database.
 
 Layout under storage.root:
     <cam_id>/YYYY-mm-dd_HH-MM-SS.mkv     recording segments (ffmpeg writes these)

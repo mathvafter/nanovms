@@ -1,4 +1,4 @@
-"""NanoVMS - clip export.
+"""JagaNVR - clip export.
 
 Default path is stream copy: segments are already H.264/MKV, so cutting a range
 out of them costs ~0 CPU (fast on a Celeron). A `precise=True` export re-encodes
@@ -78,7 +78,7 @@ def render_clip(cfg: dict, cam_id: str, start: float, end: float, out: Path,
     ffmpeg = find_ffmpeg(cfg["ffmpeg"].get("path", ""))
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    with tempfile.TemporaryDirectory(prefix="nanovms-cut-") as td:
+    with tempfile.TemporaryDirectory(prefix="jaganvr-cut-") as td:
         work = Path(td)
         if len(plan["segments"]) == 1:
             src_args = ["-i", str(root / plan["segments"][0]["path"])]

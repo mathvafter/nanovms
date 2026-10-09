@@ -1,4 +1,4 @@
-/* NanoVMS UI - vanilla JS, no build step, no dependencies. */
+/* JagaNVR UI - vanilla JS, no build step, no dependencies. */
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -113,7 +113,7 @@ class MseStream {
         throw new Error('camera sent no video within 25s - it may be at its ' +
                         'RTSP connection limit (a recorder is using the other slot)');
       }
-      throw new Error('cannot reach the NanoVMS server: ' + e.message);
+      throw new Error('cannot reach the JagaNVR server: ' + e.message);
     }
     clearTimeout(t);
     if (!r.ok) {
@@ -125,9 +125,9 @@ class MseStream {
       }
       throw new Error(msg);
     }
-    this.codec = r.headers.get('X-NanoVMS-Codec') || 'h264';
-    this.audioCodec = r.headers.get('X-NanoVMS-Audio-Codec') || '';
-    this.transcode = r.headers.get('X-NanoVMS-Transcode') === '1';
+    this.codec = r.headers.get('X-JagaNVR-Codec') || 'h264';
+    this.audioCodec = r.headers.get('X-JagaNVR-Audio-Codec') || '';
+    this.transcode = r.headers.get('X-JagaNVR-Transcode') === '1';
     const initBuf = await r.arrayBuffer();
 
     this.ms = new MediaSource();
@@ -249,9 +249,9 @@ class MseStream {
         continue;
       }
       backoff = 300;
-      const cur = r.headers.get('X-NanoVMS-Cursor');
+      const cur = r.headers.get('X-JagaNVR-Cursor');
       if (cur) this.cursor = parseInt(cur, 10);
-      const eof = r.headers.get('X-NanoVMS-EOF') === '1';
+      const eof = r.headers.get('X-JagaNVR-EOF') === '1';
 
       if (r.status === 204) {
         if (eof) {
@@ -1100,7 +1100,7 @@ $('#new-add').addEventListener('click', async () => {
   }
 
   // Path separator must follow the platform, not Windows. Joining with a
-  // literal backslash produced '/home/user\nanovms' on Linux, which is a
+  // literal backslash produced '/home/user\jaganvr' on Linux, which is a
   // filename containing a backslash: the server rejected it with
   // "not a folder" and every click in the picker was a dead end.
   const joinPath = (base, name) => {
