@@ -111,9 +111,22 @@ If still black, try **mjpeg**.
 
 ## Keep it running after reboot
 
-- Linux: see [DEPLOY.md](DEPLOY.md) - one systemd file included, auto-starts after power loss.
-- Windows: put `start.bat` in Startup, or run it as a scheduled task.
-- macOS: use `launchd`, or just leave the terminal open.
+**Linux (systemd)** — copy to `/opt`, point storage at a disk, install the service:
+
+```bash
+sudo useradd -r -m -d /opt/nanovms nanovms 2>/dev/null || true
+sudo mkdir -p /opt/nanovms /srv/nanovms
+sudo cp -r . /opt/nanovms/ && sudo chown -R nanovms:nanovms /opt/nanovms /srv/nanovms
+# in /opt/nanovms/config.json set: "storage": { "root": "/srv/nanovms" }
+sudo cp /opt/nanovms/nanovms.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now nanovms
+systemctl status nanovms
+```
+
+`Restart=always` brings it back after power loss. Check the log anytime: `journalctl -u nanovms -f`.
+
+- **Windows:** put `start.bat` in Startup, or run it as a scheduled task.
+- **macOS:** use `launchd`, or just leave the terminal open.
 
 ## Safety note
 
